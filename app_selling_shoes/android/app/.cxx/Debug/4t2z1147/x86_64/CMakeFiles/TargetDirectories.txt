@@ -1,0 +1,2 @@
+D:/year3/ktpm/project1/app_selling_shoes/android/app/.cxx/Debug/4t2z1147/x86_64/CMakeFiles/edit_cache.dir
+D:/year3/ktpm/project1/app_selling_shoes/android/app/.cxx/Debug/4t2z1147/x86_64/CMakeFiles/rebuild_cache.dir

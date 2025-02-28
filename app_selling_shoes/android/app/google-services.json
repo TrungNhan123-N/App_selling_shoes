@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "450595497053",
+    "firebase_url": "https://web-shoe-3d939-default-rtdb.firebaseio.com",
+    "project_id": "web-shoe-3d939",
+    "storage_bucket": "web-shoe-3d939.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:450595497053:android:452e0c36a2efe0bc9059b4",
+        "android_client_info": {
+          "package_name": "com.example.app_selling_shoes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAj7SRzv--ZKvarcPeaDJBSRRIYnJ0FfiM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
