@@ -303,7 +303,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextStyle(color: Colors.grey),
           ),
           Text(
-            isEmail ? 'Xác minh ngay' : 'Thay đổi ngay',
+            isEmail ? 'Xác minh ngay' : 'Thay đổi ngay  '
             style: TextStyle(color: Colors.orange),
           ),
         ],
