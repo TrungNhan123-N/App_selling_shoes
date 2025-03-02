@@ -7,19 +7,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Shoe Store'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.person),
-            onPressed: () => Navigator.pushNamed(context, '/profile'),
-          ),
-          IconButton(
-            icon: Icon(Icons.shopping_cart),
-            onPressed: () => Navigator.pushNamed(context, '/orders'),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text('Shoe Store')),
       body: Column(
         children: [
           Padding(
