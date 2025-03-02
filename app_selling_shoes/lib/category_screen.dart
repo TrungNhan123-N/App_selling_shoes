@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class CategoryScreen extends StatelessWidget {
   final String category;
 
-  CategoryScreen({required this.category});
+  const CategoryScreen({required this.category});
 
   @override
   Widget build(BuildContext context) {

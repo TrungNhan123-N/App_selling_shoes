@@ -30,7 +30,7 @@ class _AuthScreenState extends State<AuthScreen> {
       } else {
         // Đăng ký
         UserCredential userCredential =
-            await _auth.createUserWithEmailAndPassword(email: email, password: password);
+        await _auth.createUserWithEmailAndPassword(email: email, password: password);
 
         String uid = userCredential.user!.uid;
 

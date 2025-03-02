@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'product_detail_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -18,13 +19,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchUserEmail() async {
-  User? user = FirebaseAuth.instance.currentUser; // Lấy user hiện tại
-  if (user != null) {
-    setState(() {
-      userName = user.email ?? "No Email"; // Lấy email, nếu không có thì hiển thị "No Email"
-    });
+    // Lấy thông tin người dùng hiện tại
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        userName = user.email ?? "No Email";
+      });
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text('Shoe Store'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Center(
-              child: Text(
-                userName,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
+          IconButton(
+            icon: Icon(Icons.shopping_cart), // Thêm biểu tượng giỏ hàng
+            onPressed: () {
+              Navigator.pushNamed(context, '/cart'); // Chuyển đến màn hình giỏ hàng
+            },
           ),
         ],
       ),
@@ -62,7 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
               itemCount: categories.length,
               itemBuilder: (context, index) {
                 return GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pushNamed(context, '/category', arguments: categories[index]);
+                  },
                   child: Container(
                     margin: EdgeInsets.all(8),
                     padding: EdgeInsets.all(16),
@@ -79,17 +80,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               },
-            ),
-          ),
-          Container(
-            margin: EdgeInsets.all(10),
-            height: 150,
-            color: Colors.orangeAccent,
-            child: Center(
-              child: Text(
-                "Promotional Banner",
-                style: TextStyle(fontSize: 20, color: Colors.white),
-              ),
             ),
           ),
           Expanded(
@@ -123,8 +113,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           fit: BoxFit.cover,
                         ),
                         title: Text(product['name']),
-                        subtitle: Text(product['description']),
-                        trailing: Text("\$${product['price']}"),
+                        subtitle: Text("\$${product['price']}"),
+                        onTap: () {
+                          // Điều hướng đến màn hình chi tiết sản phẩm
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (ctx) => ProductDetailScreen(product: product),
+                            ),
+                          );
+                        },
                       ),
                     );
                   },
@@ -137,4 +135,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-

@@ -3,6 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'auth_screen.dart';
 import 'home.dart';
+import 'cart_screen.dart';
+import 'checkout_screen.dart';
+import 'product_detail_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
@@ -19,6 +22,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      routes: {
+        '/home': (context) => HomeScreen(),
+        '/cart': (context) => CartScreen(),
+        '/checkout': (context) => CheckoutScreen(),
+      },
       home: StreamBuilder(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (ctx, snapshot) {
