@@ -1,13 +1,48 @@
-import 'package:app_selling_shoes/category.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
+  String userName = "Guest";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserEmail();
+  }
+
+  Future<void> _fetchUserEmail() async {
+  User? user = FirebaseAuth.instance.currentUser; // Lấy user hiện tại
+  if (user != null) {
+    setState(() {
+      userName = user.email ?? "No Email"; // Lấy email, nếu không có thì hiển thị "No Email"
+    });
+  }
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Shoe Store')),
+      appBar: AppBar(
+        title: Text('Shoe Store'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Center(
+              child: Text(
+                userName,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -27,14 +62,7 @@ class HomeScreen extends StatelessWidget {
               itemCount: categories.length,
               itemBuilder: (context, index) {
                 return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CategoryScreen(category: categories[index]),
-                      ),
-                    );
-                  },
+                  onTap: () {},
                   child: Container(
                     margin: EdgeInsets.all(8),
                     padding: EdgeInsets.all(16),
@@ -42,7 +70,12 @@ class HomeScreen extends StatelessWidget {
                       color: Colors.blueAccent,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Center(child: Text(categories[index], style: TextStyle(color: Colors.white))),
+                    child: Center(
+                      child: Text(
+                        categories[index],
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
                   ),
                 );
               },
@@ -52,16 +85,49 @@ class HomeScreen extends StatelessWidget {
             margin: EdgeInsets.all(10),
             height: 150,
             color: Colors.orangeAccent,
-            child: Center(child: Text("Promotional Banner", style: TextStyle(fontSize: 20, color: Colors.white))),
+            child: Center(
+              child: Text(
+                "Promotional Banner",
+                style: TextStyle(fontSize: 20, color: Colors.white),
+              ),
+            ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  leading: Icon(Icons.shopping_bag),
-                  title: Text("New Shoe Model $index"),
-                  subtitle: Text("Description of shoe model $index"),
+            child: StreamBuilder(
+              stream: FirebaseFirestore.instance.collection('products').snapshots(),
+              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('No products found'));
+                }
+
+                final products = snapshot.data!.docs;
+
+                return ListView.builder(
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    var product = products[index].data() as Map<String, dynamic>;
+
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      child: ListTile(
+                        leading: Image.network(
+                          product['image_url'],
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                        ),
+                        title: Text(product['name']),
+                        subtitle: Text(product['description']),
+                        trailing: Text("\$${product['price']}"),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -71,3 +137,4 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
