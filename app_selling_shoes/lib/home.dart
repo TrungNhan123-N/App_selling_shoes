@@ -1,12 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'category.dart';
 import 'main_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
+
+  String _searchQuery = ''; // Từ khóa tìm kiếm
 
   @override
   Widget build(BuildContext context) {
@@ -25,9 +31,15 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
+          // Thanh tìm kiếm
           Padding(
             padding: EdgeInsets.all(10),
             child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase(); // Cập nhật từ khóa tìm kiếm
+                });
+              },
               decoration: InputDecoration(
                 hintText: "Search for shoes...",
                 prefixIcon: Icon(Icons.search),
@@ -35,6 +47,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
+          // Danh mục sản phẩm
           SizedBox(
             height: 100,
             child: ListView.builder(
@@ -42,7 +55,10 @@ class HomeScreen extends StatelessWidget {
               itemCount: categories.length,
               itemBuilder: (context, index) => GestureDetector(
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => CategoryScreen(category: categories[index])));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => CategoryScreen(category: categories[index])),
+                  );
                 },
                 child: Container(
                   margin: EdgeInsets.all(8),
@@ -56,12 +72,16 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
+          // Banner khuyến mãi
           Container(
             margin: EdgeInsets.all(10),
             height: 150,
             color: Colors.orangeAccent,
-            child: Center(child: Text("Promotional Banner", style: TextStyle(fontSize: 20, color: Colors.white))),
+            child: Center(
+              child: Text("Promotional Banner", style: TextStyle(fontSize: 20, color: Colors.white)),
+            ),
           ),
+          // Danh sách sản phẩm từ Firestore (có tìm kiếm)
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestore.collection('products').snapshots(),
@@ -73,24 +93,36 @@ class HomeScreen extends StatelessWidget {
                   return Center(child: Text("Không có sản phẩm"));
                 }
 
-                final products = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+                // Lọc sản phẩm theo từ khóa tìm kiếm
+                final products = snapshot.data!.docs
+                    .map((doc) => doc.data() as Map<String, dynamic>)
+                    .where((product) =>
+                        product['name'].toString().toLowerCase().contains(_searchQuery))
+                    .toList();
 
-                return ListView.builder(
-                  itemCount: products.length,
-                  itemBuilder: (context, index) {
-                    final product = products[index];
-                    return ListTile(
-                      leading: product['image_url'] != null
-                          ? Image.network(product['image_url'], width: 50, height: 50, fit: BoxFit.cover)
-                          : Icon(Icons.shopping_bag),
-                      title: Text(product['name'] ?? 'Không có tên'),
-                      subtitle: Text('\$${product['price']?.toStringAsFixed(2) ?? '0.00'}'),
-                      onTap: () {
-                        Navigator.pushNamed(context, '/product_detail', arguments: product);
-                      },
-                    );
-                  },
-                );
+                return products.isEmpty
+                    ? Center(child: Text("Không tìm thấy sản phẩm"))
+                    : ListView.builder(
+                        itemCount: products.length,
+                        itemBuilder: (context, index) {
+                          final product = products[index];
+                          return ListTile(
+                            leading: product['image_url'] != null
+                                ? Image.network(
+                                    product['image_url'],
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Icon(Icons.shopping_bag),
+                            title: Text(product['name'] ?? 'Không có tên'),
+                            subtitle: Text('\$${product['price']?.toStringAsFixed(2) ?? '0.00'}'),
+                            onTap: () {
+                              Navigator.pushNamed(context, '/product_detail', arguments: product);
+                            },
+                          );
+                        },
+                      );
               },
             ),
           ),
