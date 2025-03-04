@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -17,7 +16,6 @@ class OrderListScreen extends StatefulWidget {
 class _OrderListScreenState extends State<OrderListScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final DatabaseReference _ordersRef = FirebaseDatabase.instance.ref('users');
   String? avatarUrl;
   String userName = "Nguyễn Trung Nhân";
 
@@ -128,16 +126,19 @@ class _OrderListScreenState extends State<OrderListScreen> {
           ),
           SizedBox(height: 16),
           Expanded(
-            child: StreamBuilder(
-              stream: _ordersRef.child(user.uid).child('orders').onValue,
-              builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
-                if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-                final data = snapshot.data!.snapshot.value as Map?;
-                if (data == null) return Center(child: Text("Chưa có đơn hàng"));
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection('orders').where('userId', isEqualTo: user.uid).snapshots(),
+              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text("Chưa có đơn hàng"));
+                }
 
-                final orders = data.entries.map((e) {
-                  final order = Map<String, dynamic>.from(e.value);
-                  order['id'] = e.key; // Lấy orderId từ key
+                final orders = snapshot.data!.docs.map((doc) {
+                  final order = doc.data() as Map<String, dynamic>;
+                  order['id'] = doc.id; // Lấy orderId từ document ID
                   order['icon'] = _getIconForStatus(order['status']);
                   return order;
                 }).toList();

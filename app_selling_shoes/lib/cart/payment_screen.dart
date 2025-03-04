@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart'; // Thêm Realtime Database
 import 'package:flutter/material.dart';
+
+import '../main_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   @override
@@ -13,7 +14,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _selectedPaymentMethod = "COD";
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final DatabaseReference _ordersRef = FirebaseDatabase.instance.ref('users'); // Tham chiếu Realtime Database
 
   Future<void> _placeOrder() async {
     String uid = _auth.currentUser!.uid;
@@ -39,17 +39,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       orderItems.add(item);
     }
 
-    // Lưu đơn hàng vào Realtime Database
-    DatabaseReference userOrdersRef = _ordersRef.child(uid).child('orders');
-    String orderId = userOrdersRef.push().key!; // Tạo ID duy nhất cho đơn hàng
-    await userOrdersRef.child(orderId).set({
+    // Lưu đơn hàng vào Firestore
+    String orderId = _firestore.collection('orders').doc().id; // Tạo ID duy nhất
+    await _firestore.collection('orders').doc(orderId).set({
       'id': orderId,
-      'status': 'Chờ xác nhận', // Trạng thái ban đầu
-      'date': DateTime.now().toIso8601String().substring(0, 10), // e.g., "2025-03-03"
+      'userId': uid,
       'items': orderItems,
       'totalAmount': totalAmount,
       'paymentMethod': _selectedPaymentMethod,
       'address': address,
+      'orderTime': DateTime.now(),
+      'status': 'Chờ xác nhận',
     });
 
     // Xóa giỏ hàng trong Firestore sau khi đặt hàng
@@ -59,8 +59,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Đặt hàng thành công!")));
 
-    // Quay về màn hình chính và chuyển về tab Home
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    // Quay về OrderListScreen trong tab "Tôi"
+    Navigator.popUntil(context, (route) => route.isFirst);
+    final mainScreenState = MainScreen.globalKey.currentState;
+    // mainScreenState?._onItemTapped(2); // Chuyển sang tab "Tôi" (ProfileScreen) để xem đơn hàng
   }
 
   @override

@@ -1,28 +1,45 @@
-
-import 'package:app_selling_shoes/screens/order_list_screen.dart';
 import 'package:app_selling_shoes/cart/cart_screen.dart';
 import 'package:app_selling_shoes/home.dart';
+import 'package:app_selling_shoes/screens/order_list_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+  static final GlobalKey<_MainScreenState> globalKey = GlobalKey();
+
   @override
-  _MainScreenState createState() => _MainScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-
   final List<Widget> _screens = [
     HomeScreen(),
     CartScreen(),
     OrderListScreen(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthState();
+  }
+
+  void _checkAuthState() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user == null && mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      }
+    });
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +50,7 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
-        items: [
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tôi'),
@@ -42,3 +59,4 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 }
+

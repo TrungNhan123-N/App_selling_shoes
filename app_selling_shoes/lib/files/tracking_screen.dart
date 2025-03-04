@@ -1,26 +1,26 @@
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class TrackingScreen extends StatelessWidget {
   final String orderId;
-  final DatabaseReference _trackingRef;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  TrackingScreen({required this.orderId}) : _trackingRef = FirebaseDatabase.instance.ref('tracking/$orderId');
+  TrackingScreen({required this.orderId});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Theo dõi đơn hàng #$orderId')),
-      body: StreamBuilder(
-        stream: _trackingRef.onValue,
-        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestore.collection('orders').doc(orderId).snapshots(),
+        builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
           if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-          final data = snapshot.data!.snapshot.value as Map?;
+          final data = snapshot.data!.data() as Map<String, dynamic>?;
           if (data == null) return Center(child: Text("Không có thông tin theo dõi"));
 
-          final statuses = List<String>.from(data['statuses'] ?? []);
-          final currentStatus = data['currentStatus'] ?? statuses.last;
+          final statuses = ['Chờ xác nhận', 'Chờ lấy hàng', 'Chờ giao hàng', 'Đang giao', 'Hoàn thành'];
+          final currentStatus = data['status'] ?? 'Chờ xác nhận';
 
           return Padding(
             padding: EdgeInsets.all(16),

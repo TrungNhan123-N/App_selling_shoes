@@ -1,11 +1,11 @@
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-
 import 'category.dart';
+import 'main_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  final DatabaseReference _productsRef = FirebaseDatabase.instance.ref('products');
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
 
   @override
@@ -16,13 +16,15 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: Icon(Icons.shopping_cart),
-            onPressed: () => Navigator.pushNamed(context, '/cart'),
+            onPressed: () {
+              final mainScreenState = MainScreen.globalKey.currentState;
+              // mainScreenState?._onItemTapped(1); // Chuyển sang tab Cart
+            },
           ),
         ],
       ),
       body: Column(
         children: [
-          // Thanh tìm kiếm (có thể thêm logic tìm kiếm sau)
           Padding(
             padding: EdgeInsets.all(10),
             child: TextField(
@@ -33,7 +35,6 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          // Danh mục
           SizedBox(
             height: 100,
             child: ListView.builder(
@@ -55,31 +56,35 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          // Banner
           Container(
             margin: EdgeInsets.all(10),
             height: 150,
             color: Colors.orangeAccent,
             child: Center(child: Text("Promotional Banner", style: TextStyle(fontSize: 20, color: Colors.white))),
           ),
-          // Sản phẩm nổi bật từ Realtime Database
           Expanded(
-            child: StreamBuilder(
-              stream: _productsRef.orderByChild('featured').equalTo(true).limitToFirst(10).onValue,
-              builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
-                if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-                final data = snapshot.data!.snapshot.value as Map?;
-                if (data == null) return Center(child: Text("Không có sản phẩm"));
-                final products = data.entries.map((e) => Map<String, dynamic>.from(e.value)).toList();
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection('products').snapshots(),
+              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text("Không có sản phẩm"));
+                }
+
+                final products = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
 
                 return ListView.builder(
                   itemCount: products.length,
                   itemBuilder: (context, index) {
                     final product = products[index];
                     return ListTile(
-                      leading: Icon(Icons.shopping_bag),
-                      title: Text(product['name']),
-                      subtitle: Text(product['description']),
+                      leading: product['image_url'] != null
+                          ? Image.network(product['image_url'], width: 50, height: 50, fit: BoxFit.cover)
+                          : Icon(Icons.shopping_bag),
+                      title: Text(product['name'] ?? 'Không có tên'),
+                      subtitle: Text('\$${product['price']?.toStringAsFixed(2) ?? '0.00'}'),
                       onTap: () {
                         Navigator.pushNamed(context, '/product_detail', arguments: product);
                       },
