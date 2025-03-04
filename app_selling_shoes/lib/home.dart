@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart'; // Import thư viện carousel_slider
 import 'category.dart';
 import 'main_screen.dart';
 
@@ -12,7 +13,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
 
-  String _searchQuery = ''; // Từ khóa tìm kiếm
+  String _searchQuery = '';
+
+  final List<String> promoImages = [
+    "https://img.pikbest.com/templates/20240728/banner-sale-banner-introducing-shoe-shop-_10686281.jpg!sw800",
+    "https://bizweb.dktcdn.net/100/458/331/files/giay-bong-da-mercurial-vapor-15.jpg?v=1724004904722",
+    "https://img.pikbest.com/origin/10/04/45/889pIkbEsTcqs.jpg!w700wp",
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -72,13 +79,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Banner khuyến mãi
-          Container(
-            margin: EdgeInsets.all(10),
-            height: 150,
-            color: Colors.orangeAccent,
-            child: Center(
-              child: Text("Promotional Banner", style: TextStyle(fontSize: 20, color: Colors.white)),
+          // Banner khuyến mãi tự động chuyển đổi
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: CarouselSlider(
+              options: CarouselOptions(
+                height: 150,
+                autoPlay: true, // Tự động chạy
+                autoPlayInterval: Duration(seconds: 3), // Chuyển ảnh sau mỗi 3 giây
+                enlargeCenterPage: true,
+                viewportFraction: 0.9,
+              ),
+              items: promoImages.map((imageUrl) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity),
+                );
+              }).toList(),
             ),
           ),
           // Danh sách sản phẩm từ Firestore (có tìm kiếm)
