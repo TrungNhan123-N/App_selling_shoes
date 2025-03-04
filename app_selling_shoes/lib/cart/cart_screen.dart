@@ -1,3 +1,4 @@
+// cart_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -14,12 +15,19 @@ class _CartScreenState extends State<CartScreen> {
   double totalPrice = 0.0;
 
   Future<void> _updateQuantity(String docId, int quantity) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final itemRef = _firestore
+        .collection('carts')
+        .doc(user.uid)
+        .collection('items')
+        .doc(docId);
+
     if (quantity <= 0) {
-      await _firestore.collection('users').doc(_auth.currentUser!.uid).collection('cart').doc(docId).delete();
+      await itemRef.delete();
     } else {
-      await _firestore.collection('users').doc(_auth.currentUser!.uid).collection('cart').doc(docId).update({
-        'quantity': quantity,
-      });
+      await itemRef.update({'quantity': quantity});
     }
   }
 
@@ -28,7 +36,11 @@ class _CartScreenState extends State<CartScreen> {
     return Scaffold(
       appBar: AppBar(title: Text('Giỏ hàng')),
       body: StreamBuilder(
-        stream: _firestore.collection('users').doc(_auth.currentUser!.uid).collection('cart').snapshots(),
+        stream: _firestore
+            .collection('carts')
+            .doc(_auth.currentUser!.uid)
+            .collection('items')
+            .snapshots(),
         builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
@@ -41,7 +53,7 @@ class _CartScreenState extends State<CartScreen> {
 
           totalPrice = cartItems.fold(0.0, (sum, item) {
             var data = item.data() as Map<String, dynamic>;
-            return sum + (data['price'] * data['quantity']);
+            return sum + (double.tryParse(data['price'].toString()) ?? 0.0) * data['quantity'];
           });
 
           return Column(
@@ -56,7 +68,13 @@ class _CartScreenState extends State<CartScreen> {
                     return Card(
                       margin: EdgeInsets.all(10),
                       child: ListTile(
-                        leading: Image.network(data['image_url'], width: 50, height: 50, fit: BoxFit.cover),
+                        leading: Image.network(
+                          data['image_url'],
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50),
+                        ),
                         title: Text(data['name']),
                         subtitle: Text("Giá: \$${data['price']}"),
                         trailing: Row(
@@ -96,7 +114,7 @@ class _CartScreenState extends State<CartScreen> {
                     SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/payment'); // Chuyển đến PaymentScreen
+                        Navigator.pushNamed(context, '/checkout');
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                       child: Text("Thanh toán", style: TextStyle(fontSize: 18, color: Colors.white)),

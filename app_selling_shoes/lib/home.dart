@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:carousel_slider/carousel_slider.dart'; // Import thư viện carousel_slider
+import 'package:carousel_slider/carousel_slider.dart';
 import 'category.dart';
 import 'main_screen.dart';
 

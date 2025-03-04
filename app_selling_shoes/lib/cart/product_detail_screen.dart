@@ -1,9 +1,40 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   final Map<String, dynamic> product;
 
-  const ProductDetailScreen({required this.product});
+  const ProductDetailScreen({required this.product, Key? key}) : super(key: key);
+
+  Future<void> addToCart() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final cartItemRef = FirebaseFirestore.instance
+        .collection('carts')
+        .doc(user.uid)
+        .collection('items')
+        .doc(product['id']);
+
+    final cartItemDoc = await cartItemRef.get();
+
+    if (cartItemDoc.exists) {
+      cartItemRef.update({
+        'quantity': FieldValue.increment(1),
+      });
+    } else {
+      await cartItemRef.set({
+        'productId': product['id'],
+        'name': product['name'],
+        'image_url': product['image_url'],
+        'price': product['price'],
+        'quantity': 1,
+        'user_id': user.uid,
+        'created_at': FieldValue.serverTimestamp(),
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +61,7 @@ class ProductDetailScreen extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             Text(
-              "\$${product['price']?.toStringAsFixed(2) ?? '0.00'}",
+              "\$${product['price']}",
               style: TextStyle(fontSize: 18, color: Colors.red),
             ),
             SizedBox(height: 10),
@@ -38,29 +69,16 @@ class ProductDetailScreen extends StatelessWidget {
               product['description'] ?? 'Không có mô tả',
               style: TextStyle(fontSize: 16),
             ),
-            SizedBox(height: 10),
-            Text(
-              'Danh mục: ${product['category_id'] ?? 'Không xác định'}',
-              style: TextStyle(fontSize: 16),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Kho: ${product['stock'] ?? '0'}',
-              style: TextStyle(fontSize: 16),
-            ),
-            SizedBox(height: 10),
-            if (product['created_at'] != null)
-              Text(
-                'Ngày tạo: ${product['created_at'].toString().substring(0, 10) ?? 'Không xác định'}',
-                style: TextStyle(fontSize: 16),
-              ),
             Spacer(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/cart');
+                  onPressed: () async {
+                    await addToCart();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Đã thêm vào giỏ hàng")),
+                    );
                   },
                   child: Text("Thêm vào giỏ hàng"),
                 ),

@@ -5,14 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c8412321-1790-44bd-84c5-8806eff4d868" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app_selling_shoes/lib/checkout_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app_selling_shoes/lib/payment_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app_selling_shoes/lib/product_detail_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/auth_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/auth_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/category.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/category_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/cart_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/cart_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/checkout_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/checkout_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/payment_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/product_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/product_detail_screen.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/home.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/home.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/main.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app_selling_shoes/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/pubspec.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -41,24 +39,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Flutter.main.dart (1).executor": "Run",
-    "Flutter.main.dart.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "main",
-    "io.flutter.reload.alreadyRun": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "D:/NAMBA/HK2/KTPM/app_selling_shoes",
-    "settings.editor.selected.configurable": "preferences.keymap",
-    "show.migrate.to.gradle.popup": "false"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Flutter.main.dart (1).executor&quot;: &quot;Run&quot;,
+    &quot;Flutter.main.dart.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;io.flutter.reload.alreadyRun&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/NAMBA/HK2/KTPM/app_selling_shoes&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
+    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Flutter.main.dart (1)">
     <configuration name="main.dart (1)" type="FlutterRunConfigurationType" factoryName="Flutter" temporary="true" nameIsGenerated="true">
       <option name="filePath" value="$PROJECT_DIR$/app_selling_shoes/lib/main.dart" />

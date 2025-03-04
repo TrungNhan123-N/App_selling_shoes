@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -6,84 +8,111 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  String _selectedPaymentMethod = "Ví điện tử";
-  final TextEditingController _addressController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  double totalPrice = 0.0;
+  List<Map<String, dynamic>> checkoutItems = [];
 
-  void _confirmOrder() {
-    String address = _addressController.text.trim();
-    if (address.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Vui lòng nhập địa chỉ giao hàng")));
-      return;
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadCartItems();
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Đặt hàng thành công!")));
-    Navigator.popUntil(context, (route) => route.isFirst); // Quay về HomeScreen
+  Future<void> _loadCartItems() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final cartSnapshot = await _firestore
+        .collection('carts')
+        .doc(user.uid)
+        .collection('items')
+        .get();
+
+    final items = cartSnapshot.docs.map((doc) => doc.data()).toList();
+
+    setState(() {
+      checkoutItems = items;
+      totalPrice = items.fold(0.0, (sum, item) {
+        return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];
+      });
+    });
+  }
+
+  Future<void> _placeOrder() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final orderRef = _firestore.collection('orders').doc();
+    await orderRef.set({
+      'user_id': user.uid,
+      'items': checkoutItems,
+      'total_price': totalPrice,
+      'created_at': Timestamp.now(),
+    });
+
+    await _firestore.collection('carts').doc(user.uid).collection('items').get().then((snapshot) {
+      for (var doc in snapshot.docs) {
+        doc.reference.delete();
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Đặt hàng thành công!")),
+    );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Thanh toán")),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Chọn phương thức thanh toán:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ListTile(
-              title: Text("Ví điện tử"),
-              leading: Radio(
-                value: "Ví điện tử",
-                groupValue: _selectedPaymentMethod,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPaymentMethod = value.toString();
-                  });
-                },
-              ),
+      appBar: AppBar(title: Text('Thanh toán')),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: checkoutItems.length,
+              itemBuilder: (context, index) {
+                var item = checkoutItems[index];
+                return ListTile(
+                  leading: Image.network(
+                    item['image_url'],
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50),
+                  ),
+                  title: Text(item['name']),
+                  subtitle: Text("Số lượng: ${item['quantity']} - Giá: \$${item['price']}"),
+                );
+              },
             ),
-            ListTile(
-              title: Text("Thẻ ngân hàng"),
-              leading: Radio(
-                value: "Thẻ ngân hàng",
-                groupValue: _selectedPaymentMethod,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPaymentMethod = value.toString();
-                  });
-                },
-              ),
+          ),
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
             ),
-            ListTile(
-              title: Text("Thanh toán khi nhận hàng (COD)"),
-              leading: Radio(
-                value: "COD",
-                groupValue: _selectedPaymentMethod,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPaymentMethod = value.toString();
-                  });
-                },
-              ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Tổng tiền:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("\$${totalPrice.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: _placeOrder,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: Text("Xác nhận đặt hàng", style: TextStyle(fontSize: 18, color: Colors.white)),
+                ),
+              ],
             ),
-            SizedBox(height: 20),
-            Text("Nhập địa chỉ giao hàng:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextField(
-              controller: _addressController,
-              decoration: InputDecoration(
-                hintText: "Nhập địa chỉ của bạn",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 20),
-            Center(
-              child: ElevatedButton(
-                onPressed: _confirmOrder,
-                child: Text("Xác nhận đơn hàng"),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
