@@ -41,13 +41,14 @@ class ProductDetailScreen extends StatelessWidget {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    // Thêm vào giỏ hàng
+                    // Thêm sản phẩm vào giỏ hàng (giả sử dùng Firestore như CartScreen)
+                    Navigator.pushNamed(context, '/cart');
                   },
                   child: Text("Thêm vào giỏ hàng"),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamed(context, '/checkout');
+                    Navigator.pushNamed(context, '/payment', arguments: product); // Chuyển đến PaymentScreen
                   },
                   child: Text("Mua ngay"),
                 ),

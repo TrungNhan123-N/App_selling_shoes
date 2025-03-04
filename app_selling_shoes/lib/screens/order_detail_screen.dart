@@ -21,6 +21,8 @@ class OrderDetailScreen extends StatelessWidget {
             Text('Trạng thái: ${order['status']}', style: TextStyle(fontSize: 16)),
             SizedBox(height: 8),
             Text('Ngày đặt hàng: ${order['date']}', style: TextStyle(fontSize: 16)),
+            SizedBox(height: 8),
+            Text('Tổng tiền: \$${order['totalAmount']?.toStringAsFixed(2) ?? '0.00'}', style: TextStyle(fontSize: 16)),
             SizedBox(height: 20),
             if (order['status'] == 'Đang giao')
               Center(
@@ -28,9 +30,7 @@ class OrderDetailScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => TrackingScreen(orderId: order['id']),
-                      ),
+                      MaterialPageRoute(builder: (_) => TrackingScreen(orderId: order['id'])),
                     );
                   },
                   child: Text('Theo dõi đơn hàng'),

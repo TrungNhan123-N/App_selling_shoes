@@ -96,7 +96,7 @@ class _CartScreenState extends State<CartScreen> {
                     SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () {
-                        // TODO: Chuyển đến màn hình thanh toán
+                        Navigator.pushNamed(context, '/payment'); // Chuyển đến PaymentScreen
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                       child: Text("Thanh toán", style: TextStyle(fontSize: 18, color: Colors.white)),

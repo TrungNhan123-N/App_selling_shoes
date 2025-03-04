@@ -17,7 +17,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Đặt hàng thành công!")));
-    Navigator.pop(context);
+    Navigator.popUntil(context, (route) => route.isFirst); // Quay về HomeScreen
   }
 
   @override
