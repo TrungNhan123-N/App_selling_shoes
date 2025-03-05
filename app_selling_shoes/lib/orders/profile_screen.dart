@@ -1,8 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../files/saved_addresses_screen.dart';
-import '../screens/order_list_screen.dart'; // Thêm import để sử dụng OrderListScreen
+import 'order_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -148,17 +147,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               keyboardType: TextInputType.emailAddress,
             ),
             isEmail: true,
-          ),
-          Divider(),
-          ListTile(
-            leading: Icon(Icons.location_on, color: Colors.blue),
-            title: Text('Xem địa chỉ đã lưu'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SavedAddressesScreen()),
-              );
-            },
           ),
           Divider(),
           ListTile(

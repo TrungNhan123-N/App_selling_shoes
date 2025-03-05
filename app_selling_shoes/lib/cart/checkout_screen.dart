@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../orders/order_list_screen.dart';
+
+
 
 class CheckoutScreen extends StatefulWidget {
   @override
@@ -45,10 +48,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final orderRef = _firestore.collection('orders').doc();
     await orderRef.set({
-      'user_id': user.uid,
+      'id': orderRef.id,
+      'userId': user.uid,
       'items': checkoutItems,
-      'total_price': totalPrice,
-      'created_at': Timestamp.now(),
+      'totalPrice': totalPrice,
+      'status': 'Chờ xác nhận',
+      'date': Timestamp.now(),
     });
 
     await _firestore.collection('carts').doc(user.uid).collection('items').get().then((snapshot) {
@@ -60,7 +65,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Đặt hàng thành công!")),
     );
-    Navigator.pop(context);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => OrderListScreen()),
+    );
   }
 
   @override
