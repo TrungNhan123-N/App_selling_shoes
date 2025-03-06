@@ -1,6 +1,6 @@
-// cart_screen.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/cart/cart_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
 class CartScreen extends StatefulWidget {
@@ -10,22 +10,17 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
   double totalPrice = 0.0;
 
-  Future<void> _updateQuantity(String docId, int quantity) async {
+  Future<void> _updateQuantity(String key, int quantity) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final itemRef = _firestore
-        .collection('carts')
-        .doc(user.uid)
-        .collection('items')
-        .doc(docId);
+    final itemRef = _database.child('carts').child(user.uid).child('items').child(key);
 
     if (quantity <= 0) {
-      await itemRef.delete();
+      await itemRef.remove();
     } else {
       await itemRef.update({'quantity': quantity});
     }
@@ -36,58 +31,55 @@ class _CartScreenState extends State<CartScreen> {
     return Scaffold(
       appBar: AppBar(title: Text('Giỏ hàng')),
       body: StreamBuilder(
-        stream: _firestore
-            .collection('carts')
-            .doc(_auth.currentUser!.uid)
-            .collection('items')
-            .snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+        stream: _database.child('carts').child(_auth.currentUser!.uid).child('items').onValue,
+        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
             return Center(child: Text('Giỏ hàng trống.'));
           }
 
-          final cartItems = snapshot.data!.docs;
+          Map<dynamic, dynamic> cartItems = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+          List<Map<String, dynamic>> cartList = [];
+          cartItems.forEach((key, value) {
+            cartList.add(Map<String, dynamic>.from(value)..['key'] = key);
+          });
 
-          totalPrice = cartItems.fold(0.0, (sum, item) {
-            var data = item.data() as Map<String, dynamic>;
-            return sum + (double.tryParse(data['price'].toString()) ?? 0.0) * data['quantity'];
+          totalPrice = cartList.fold(0.0, (sum, item) {
+            return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];
           });
 
           return Column(
             children: [
               Expanded(
                 child: ListView.builder(
-                  itemCount: cartItems.length,
+                  itemCount: cartList.length,
                   itemBuilder: (context, index) {
-                    var item = cartItems[index];
-                    var data = item.data() as Map<String, dynamic>;
-
+                    var item = cartList[index];
                     return Card(
                       margin: EdgeInsets.all(10),
                       child: ListTile(
                         leading: Image.network(
-                          data['image_url'],
+                          item['image_url'],
                           width: 50,
                           height: 50,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50),
                         ),
-                        title: Text(data['name']),
-                        subtitle: Text("Giá: \$${data['price']}"),
+                        title: Text(item['name']),
+                        subtitle: Text("Giá: \$${item['price']}"),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: Icon(Icons.remove),
-                              onPressed: () => _updateQuantity(item.id, data['quantity'] - 1),
+                              onPressed: () => _updateQuantity(item['key'], item['quantity'] - 1),
                             ),
-                            Text("${data['quantity']}"),
+                            Text("${item['quantity']}"),
                             IconButton(
                               icon: Icon(Icons.add),
-                              onPressed: () => _updateQuantity(item.id, data['quantity'] + 1),
+                              onPressed: () => _updateQuantity(item['key'], item['quantity'] + 1),
                             ),
                           ],
                         ),

@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
+// lib/category.dart
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
 class CategoryScreen extends StatelessWidget {
   final String category;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('products');
 
   CategoryScreen({required this.category});
 
@@ -12,22 +12,30 @@ class CategoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(category)),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('products').where('category_id', isEqualTo: category).snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+      body: StreamBuilder(
+        stream: _database.onValue,
+        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
             return Center(child: Text("Không có sản phẩm trong danh mục này"));
           }
 
-          final products = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+          Map<dynamic, dynamic> products = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+          List<Map<String, dynamic>> productList = [];
+          products.forEach((key, value) {
+            productList.add(Map<String, dynamic>.from(value)..['key'] = key);
+          });
 
-          return ListView.builder(
-            itemCount: products.length,
+          final filteredProducts = productList.where((product) => product['category_id'] == category).toList();
+
+          return filteredProducts.isEmpty
+              ? Center(child: Text("Không có sản phẩm trong danh mục này"))
+              : ListView.builder(
+            itemCount: filteredProducts.length,
             itemBuilder: (context, index) {
-              final product = products[index];
+              final product = filteredProducts[index];
               return ListTile(
                 leading: product['image_url'] != null
                     ? Image.network(product['image_url'], width: 50, height: 50, fit: BoxFit.cover)
@@ -45,4 +53,3 @@ class CategoryScreen extends StatelessWidget {
     );
   }
 }
-

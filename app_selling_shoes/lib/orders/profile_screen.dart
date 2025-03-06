@@ -1,5 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/orders/profile_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'order_list_screen.dart';
 
@@ -10,7 +11,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('users');
   Map<String, dynamic>? userData;
 
   @override
@@ -22,10 +23,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     User? user = _auth.currentUser;
     if (user != null) {
-      DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
-      if (doc.exists) {
+      DataSnapshot snapshot = await _database.child(user.uid).get();
+      if (snapshot.exists) {
         setState(() {
-          userData = doc.data() as Map<String, dynamic>;
+          userData = Map<String, dynamic>.from(snapshot.value as Map);
         });
       }
     }
@@ -59,15 +60,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 try {
                   if (field == 'Email') {
                     await user.updateEmail(controller.text.trim());
-                    await _firestore.collection('users').doc(user.uid).update({
+                    await _database.child(user.uid).update({
                       'email': controller.text.trim(),
                     });
                   } else if (field == 'Tên') {
-                    await _firestore.collection('users').doc(user.uid).update({
+                    await _database.child(user.uid).update({
                       'name': controller.text.trim(),
                     });
                   } else if (field == 'Số điện thoại') {
-                    await _firestore.collection('users').doc(user.uid).update({
+                    await _database.child(user.uid).update({
                       'phoneNumber': controller.text.trim(),
                     });
                   }
@@ -102,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.orange,
+        backgroundColor: Colors.blueGrey,
         title: Text('Hồ sơ Cá nhân'),
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),

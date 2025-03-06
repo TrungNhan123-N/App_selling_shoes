@@ -1,9 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/cart/checkout_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import '../orders/order_list_screen.dart';
-
-
 
 class CheckoutScreen extends StatefulWidget {
   @override
@@ -12,7 +11,7 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
   double totalPrice = 0.0;
   List<Map<String, dynamic>> checkoutItems = [];
 
@@ -26,41 +25,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final cartSnapshot = await _firestore
-        .collection('carts')
-        .doc(user.uid)
-        .collection('items')
-        .get();
-
-    final items = cartSnapshot.docs.map((doc) => doc.data()).toList();
-
-    setState(() {
-      checkoutItems = items;
-      totalPrice = items.fold(0.0, (sum, item) {
-        return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];
+    DataSnapshot cartSnapshot = await _database.child('carts').child(user.uid).child('items').get();
+    if (cartSnapshot.exists) {
+      Map<dynamic, dynamic> items = cartSnapshot.value as Map<dynamic, dynamic>;
+      List<Map<String, dynamic>> cartList = [];
+      items.forEach((key, value) {
+        cartList.add(Map<String, dynamic>.from(value)..['key'] = key);
       });
-    });
+
+      setState(() {
+        checkoutItems = cartList;
+        totalPrice = cartList.fold(0.0, (sum, item) {
+          return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];
+        });
+      });
+    }
   }
 
   Future<void> _placeOrder() async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final orderRef = _firestore.collection('orders').doc();
-    await orderRef.set({
-      'id': orderRef.id,
+    String orderKey = _database.child('orders').push().key!;
+    await _database.child('orders').child(orderKey).set({
+      'id': orderKey,
       'userId': user.uid,
       'items': checkoutItems,
       'totalPrice': totalPrice,
       'status': 'Chờ xác nhận',
-      'date': Timestamp.now(),
+      'date': ServerValue.timestamp,
     });
 
-    await _firestore.collection('carts').doc(user.uid).collection('items').get().then((snapshot) {
-      for (var doc in snapshot.docs) {
-        doc.reference.delete();
-      }
-    });
+    // Xóa giỏ hàng
+    await _database.child('carts').child(user.uid).child('items').remove();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Đặt hàng thành công!")),

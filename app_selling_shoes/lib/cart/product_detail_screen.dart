@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+// lib/cart/product_detail_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/material.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   final Map<String, dynamic> product;
@@ -11,27 +12,27 @@ class ProductDetailScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final cartItemRef = FirebaseFirestore.instance
-        .collection('carts')
-        .doc(user.uid)
-        .collection('items')
-        .doc(product['id']);
+    final DatabaseReference cartRef = FirebaseDatabase.instance.ref()
+        .child('carts')
+        .child(user.uid)
+        .child('items')
+        .child(product['id']);
 
-    final cartItemDoc = await cartItemRef.get();
+    DataSnapshot cartSnapshot = await cartRef.get();
 
-    if (cartItemDoc.exists) {
-      cartItemRef.update({
-        'quantity': FieldValue.increment(1),
+    if (cartSnapshot.exists) {
+      await cartRef.update({
+        'quantity': ServerValue.increment(1),
       });
     } else {
-      await cartItemRef.set({
+      await cartRef.set({
         'productId': product['id'],
         'name': product['name'],
         'image_url': product['image_url'],
         'price': product['price'],
         'quantity': 1,
         'user_id': user.uid,
-        'created_at': FieldValue.serverTimestamp(),
+        'created_at': ServerValue.timestamp,
       });
     }
   }

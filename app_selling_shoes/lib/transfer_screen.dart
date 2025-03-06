@@ -1,20 +1,20 @@
-import 'package:app_selling_shoes/cart/cart_screen.dart';
-import 'package:app_selling_shoes/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'cart/cart_screen.dart';
+import 'home.dart';
 import 'orders/order_list_screen.dart';
 
-
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
-  static final GlobalKey<_MainScreenState> globalKey = GlobalKey();
+class TransferScreen extends StatefulWidget {
+  const TransferScreen({super.key});
+    static final GlobalKey<_TransferScreenState> globalKey = GlobalKey();
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<TransferScreen> createState() => _TransferScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _TransferScreenState extends State<TransferScreen> {
   int _selectedIndex = 0;
   final List<Widget> _screens = [
     HomeScreen(),
@@ -61,4 +61,3 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 }
-

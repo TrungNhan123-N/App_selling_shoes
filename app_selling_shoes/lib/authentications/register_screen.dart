@@ -1,5 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/authentications/register_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 
@@ -13,7 +14,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('users');
 
   @override
   void initState() {
@@ -39,10 +40,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: passwordController.text.trim(),
       );
 
-      await _firestore.collection("users").doc(userCredential.user!.uid).set({
+      await _database.child(userCredential.user!.uid).set({
         "name": nameController.text.trim(),
         "email": emailController.text.trim(),
-        "createdAt": FieldValue.serverTimestamp(),
+        "createdAt": ServerValue.timestamp,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Giữ nguyên build method
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(

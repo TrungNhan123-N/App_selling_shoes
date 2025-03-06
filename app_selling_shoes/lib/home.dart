@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/home.dart
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'category.dart';
-import 'main_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -10,7 +10,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('products');
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
 
   String _searchQuery = '';
@@ -25,26 +25,24 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.blueGrey,
         title: Text('Shoe Store'),
         actions: [
           IconButton(
             icon: Icon(Icons.shopping_cart),
             onPressed: () {
-              final mainScreenState = MainScreen.globalKey.currentState;
-              // mainScreenState?._onItemTapped(1); // Chuyển sang tab Cart
             },
           ),
         ],
       ),
       body: Column(
         children: [
-          // Thanh tìm kiếm
           Padding(
             padding: EdgeInsets.all(10),
             child: TextField(
               onChanged: (value) {
                 setState(() {
-                  _searchQuery = value.toLowerCase(); // Cập nhật từ khóa tìm kiếm
+                  _searchQuery = value.toLowerCase();
                 });
               },
               decoration: InputDecoration(
@@ -54,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Danh mục sản phẩm
           SizedBox(
             height: 100,
             child: ListView.builder(
@@ -79,14 +76,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Banner khuyến mãi tự động chuyển đổi
           Padding(
             padding: EdgeInsets.symmetric(vertical: 10),
             child: CarouselSlider(
               options: CarouselOptions(
                 height: 150,
-                autoPlay: true, // Tự động chạy
-                autoPlayInterval: Duration(seconds: 3), // Chuyển ảnh sau mỗi 3 giây
+                autoPlay: true,
+                autoPlayInterval: Duration(seconds: 3),
                 enlargeCenterPage: true,
                 viewportFraction: 0.9,
               ),
@@ -98,48 +94,50 @@ class _HomeScreenState extends State<HomeScreen> {
               }).toList(),
             ),
           ),
-          // Danh sách sản phẩm từ Firestore (có tìm kiếm)
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('products').snapshots(),
-              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+            child: StreamBuilder(
+              stream: _database.onValue,
+              builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
                   return Center(child: Text("Không có sản phẩm"));
                 }
 
-                // Lọc sản phẩm theo từ khóa tìm kiếm
-                final products = snapshot.data!.docs
-                    .map((doc) => doc.data() as Map<String, dynamic>)
-                    .where((product) =>
-                        product['name'].toString().toLowerCase().contains(_searchQuery))
+                Map<dynamic, dynamic> products = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+                List<Map<String, dynamic>> productList = [];
+                products.forEach((key, value) {
+                  productList.add(Map<String, dynamic>.from(value)..['key'] = key);
+                });
+
+                final filteredProducts = productList
+                    .where((product) => product['name'].toString().toLowerCase().contains(_searchQuery))
                     .toList();
 
-                return products.isEmpty
+                return filteredProducts.isEmpty
                     ? Center(child: Text("Không tìm thấy sản phẩm"))
                     : ListView.builder(
-                        itemCount: products.length,
-                        itemBuilder: (context, index) {
-                          final product = products[index];
-                          return ListTile(
-                            leading: product['image_url'] != null
-                                ? Image.network(
-                                    product['image_url'],
-                                    width: 50,
-                                    height: 50,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Icon(Icons.shopping_bag),
-                            title: Text(product['name'] ?? 'Không có tên'),
-                            subtitle: Text('\$${product['price']?.toStringAsFixed(2) ?? '0.00'}'),
-                            onTap: () {
-                              Navigator.pushNamed(context, '/product_detail', arguments: product);
-                            },
-                          );
-                        },
-                      );
+                  itemCount: filteredProducts.length,
+                  itemBuilder: (context, index) {
+                    final product = filteredProducts[index];
+                    return ListTile(
+                      leading: product['image_url'] != null
+                          ? Image.network(
+                        product['image_url'],
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                      )
+                          : Icon(Icons.shopping_bag),
+                      title: Text(product['name'] ?? 'Không có tên'),
+                      subtitle: Text('\$${product['price']?.toStringAsFixed(2) ?? '0.00'}'),
+                      onTap: () {
+                        Navigator.pushNamed(context, '/product_detail', arguments: product);
+                      },
+                    );
+                  },
+                );
               },
             ),
           ),
