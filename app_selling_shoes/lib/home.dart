@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blueGrey,
-        title: Text('Shoe Store'),
+        title: Text('Shoe Store', semanticsLabel: 'home_screen'),
         actions: [
           IconButton(
             icon: Icon(Icons.shopping_cart),

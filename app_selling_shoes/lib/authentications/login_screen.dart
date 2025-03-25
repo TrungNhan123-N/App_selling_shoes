@@ -1,4 +1,3 @@
-// lib/authentications/login_screen.dart
 import 'package:app_selling_shoes/authentications/register_screen.dart';
 import 'package:app_selling_shoes/transfer_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +5,8 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import '../admin_screen/admin_dash_board_screen.dart';
 import 'forgot_password_screen.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -22,6 +23,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final String adminUsername = "admin";
   final String adminPassword = "1";
 
+  String _hashPassword(String password) {
+    var bytes = utf8.encode(password);
+    var digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
   void _login() async {
     String emailOrUsername = emailController.text.trim();
     String password = passwordController.text.trim();
@@ -30,6 +37,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (emailOrUsername == adminUsername && password == adminPassword) {
       AuthStatus.isAdmin = true;
+      await _database.child('users').child('admin').set({
+        'uid': 'admin',
+        'name': 'Admin',
+        'email': 'admin@example.com',
+        'password': _hashPassword(password),
+        'address': 'Admin Address',
+        'age': 30,
+        'gender': 'male',
+        'role': 'admin',
+        'created_at': ServerValue.timestamp,
+      });
       await _initializeSampleProducts();
       Navigator.pushReplacement(
         context,
@@ -41,14 +59,42 @@ class _LoginScreenState extends State<LoginScreen> {
 
     AuthStatus.isAdmin = false;
     try {
-      await _auth.signInWithEmailAndPassword(
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: emailOrUsername,
         password: password,
       );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => TransferScreen()),
-      );
+      DataSnapshot userSnapshot = await _database.child('users').child(userCredential.user!.uid).get();
+      if (userSnapshot.exists) {
+        Map<String, dynamic> userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+        if (userData['role'] == 'admin') {
+          AuthStatus.isAdmin = true;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => AdminDashboardScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => TransferScreen()),
+          );
+        }
+      } else {
+        await _database.child(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'name': emailOrUsername.split('@')[0],
+          'email': emailOrUsername,
+          'password': _hashPassword(password),
+          'address': 'Unknown',
+          'age': 0,
+          'gender': 'unknown',
+          'role': 'user',
+          'created_at': ServerValue.timestamp,
+        });
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => TransferScreen()),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Lỗi đăng nhập: ${e.toString()}")),
@@ -61,38 +107,37 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _initializeSampleProducts() async {
     DataSnapshot productSnapshot = await _database.child('products').get();
     if (!productSnapshot.exists || productSnapshot.value == null) {
-      await _database.child('products').set({
-        '-N123456789': {
-          'id': '-N123456789',
-          'name': 'Sneaker X',
-          'price': 50.0,
-          'image_url': 'https://example.com/sneaker.jpg',
-          'description': 'A cool sneaker',
-          'category_id': 'Sneakers',
-        },
-        '-N123456790': {
-          'id': '-N123456790',
-          'name': 'Formal Shoe Y',
-          'price': 80.0,
-          'image_url': 'https://example.com/formal.jpg',
-          'description': 'Elegant formal shoe',
-          'category_id': 'Formal',
-        },
-        '-N123456791': {
-          'id': '-N123456791',
-          'name': 'Casual Z',
-          'price': 40.0,
-          'image_url': 'https://example.com/casual.jpg',
-          'description': 'Comfortable casual shoe',
-          'category_id': 'Casual',
-        },
-      });
+      // await _database.child('products').set({
+      //   '-N123456789': {
+      //     'id': '-N123456789',
+      //     'name': 'Sneaker X',
+      //     'price': 50.0,
+      //     'image_url': 'https://example.com/sneaker.jpg',
+      //     'description': 'A cool sneaker',
+      //     'category_id': 'Sneakers',
+      //   },
+      //   '-N123456790': {
+      //     'id': '-N123456790',
+      //     'name': 'Formal Shoe Y',
+      //     'price': 80.0,
+      //     'image_url': 'https://example.com/formal.jpg',
+      //     'description': 'Elegant formal shoe',
+      //     'category_id': 'Formal',
+      //   },
+      //   '-N123456791': {
+      //     'id': '-N123456791',
+      //     'name': 'Casual Z',
+      //     'price': 40.0,
+      //     'image_url': 'https://example.com/casual.jpg',
+      //     'description': 'Comfortable casual shoe',
+      //     'category_id': 'Casual',
+      //   },
+      // });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Giữ nguyên build method
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(

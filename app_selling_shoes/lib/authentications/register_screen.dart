@@ -1,7 +1,8 @@
-// lib/authentications/register_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -13,8 +14,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController addressController = TextEditingController();
+  final TextEditingController ageController = TextEditingController();
+  final TextEditingController genderController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final DatabaseReference _database = FirebaseDatabase.instance.ref().child('users');
+
+  String _hashPassword(String password) {
+    var bytes = utf8.encode(password);
+    var digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  void register() async {
+    try {
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      String hashedPassword = _hashPassword(passwordController.text.trim());
+
+      await _database.child(userCredential.user!.uid).set({
+        "uid": userCredential.user!.uid,
+        "name": nameController.text.trim(),
+        "email": emailController.text.trim(),
+        "password": hashedPassword, // Lưu mật khẩu đã băm
+        "address": addressController.text.trim(),
+        "age": int.tryParse(ageController.text.trim()) ?? 0,
+        "gender": genderController.text.trim(),
+        "role": "user",
+        "created_at": ServerValue.timestamp,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đăng ký thành công!")),
+      );
+
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Lỗi đăng ký: ${e.toString()}")),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -33,34 +76,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void register() async {
-    try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-
-      await _database.child(userCredential.user!.uid).set({
-        "name": nameController.text.trim(),
-        "email": emailController.text.trim(),
-        "createdAt": ServerValue.timestamp,
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đăng ký thành công!")),
-      );
-
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Lỗi đăng ký: ${e.toString()}")),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Giữ nguyên build method
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -112,6 +129,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 obscureText: true,
+              ),
+              SizedBox(height: 15),
+              TextField(
+                controller: addressController,
+                decoration: InputDecoration(
+                  labelText: "Địa chỉ",
+                  prefixIcon: Icon(Icons.location_on, color: Colors.black),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              SizedBox(height: 15),
+              TextField(
+                controller: ageController,
+                decoration: InputDecoration(
+                  labelText: "Tuổi",
+                  prefixIcon: Icon(Icons.cake, color: Colors.black),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              SizedBox(height: 15),
+              TextField(
+                controller: genderController,
+                decoration: InputDecoration(
+                  labelText: "Giới tính",
+                  prefixIcon: Icon(Icons.person_outline, color: Colors.black),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               ),
               SizedBox(height: 20),
               ElevatedButton(

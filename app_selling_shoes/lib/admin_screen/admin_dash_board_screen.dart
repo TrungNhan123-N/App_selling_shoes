@@ -21,6 +21,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController imageUrlController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
+  final TextEditingController stockController = TextEditingController(); // Thêm controller cho stock
 
   void _addProduct() async {
     if (nameController.text.isEmpty || priceController.text.isEmpty) {
@@ -38,6 +39,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       'image_url': imageUrlController.text.trim(),
       'description': descriptionController.text.trim(),
       'category_id': categoryController.text.trim(),
+      'created_at': ServerValue.timestamp,
+      'stock': int.tryParse(stockController.text.trim()) ?? 0, // Lấy giá trị stock từ TextField
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -49,6 +52,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     imageUrlController.clear();
     descriptionController.clear();
     categoryController.clear();
+    stockController.clear(); // Xóa giá trị stock
   }
 
   @override
@@ -107,6 +111,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 labelText: "Danh mục",
                 border: OutlineInputBorder(),
               ),
+            ),
+            SizedBox(height: 10),
+            TextField(
+              controller: stockController,
+              decoration: InputDecoration(
+                labelText: "Số lượng tồn kho",
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
             ),
             SizedBox(height: 20),
             ElevatedButton(
