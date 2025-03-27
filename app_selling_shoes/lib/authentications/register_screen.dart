@@ -61,7 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'uid': userCredential.user!.uid,
         'name': name,
         'email': email,
-        'hashed_password': hashedPassword, // Lưu bcrypt hash
+        'password': hashedPassword, // Lưu bcrypt hash
         'address': address.isNotEmpty ? address : 'Chưa cập nhật',
         'age': int.tryParse(age) ?? 0,
         'gender': gender.isNotEmpty ? gender : 'Chưa xác định',

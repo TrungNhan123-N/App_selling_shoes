@@ -178,17 +178,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, index) {
                     final product = filteredProducts[index];
                     return ListTile(
-                      leading: product['image_url'] != null
+                      leading: product['image_url'] != null && product['image_url'].isNotEmpty
                           ? Image.network(
-                        product['image_url'] as String,
+                        product['image_url'],
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(child: CircularProgressIndicator());
+                        },
                         errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.image_not_supported);
+                          return Icon(Icons.broken_image, size: 50, color: Colors.red);
                         },
                       )
-                          : Icon(Icons.shopping_bag),
+                          : Icon(Icons.image, size: 50, color: Colors.grey),
                       title: Text(product['name'] as String),
                       subtitle: Text('\$${product['price'].toStringAsFixed(2)}'),
                       onTap: () {
