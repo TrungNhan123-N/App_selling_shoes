@@ -1,5 +1,5 @@
-// admin_order_management_screen.dart
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -9,9 +9,34 @@ class AdminOrderManagementScreen extends StatefulWidget {
 }
 
 class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen> {
-  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('orders');
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Danh sách trạng thái đơn hàng
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminRole();
+  }
+
+  void _checkAdminRole() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentSnapshot snapshot = await _firestore.collection('users').doc(user.uid).get();
+      if (snapshot.exists) {
+        Map<String, dynamic> userData = snapshot.data() as Map<String, dynamic>;
+        if (userData['role'] != 'admin') {
+          Navigator.pushReplacementNamed(context, '/home');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Bạn không có quyền truy cập!")),
+          );
+        }
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
   final List<String> _statusOptions = [
     'Chờ xác nhận',
     'Chờ lấy hàng',
@@ -21,7 +46,6 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
     'Đã hủy'
   ];
 
-  // Cập nhật trạng thái đơn hàng
   void _updateOrderStatus(String orderId, String currentStatus) {
     showDialog(
       context: context,
@@ -37,9 +61,9 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
           }).toList(),
           onChanged: (newStatus) async {
             if (newStatus != null) {
-              await _database.child(orderId).update({
+              await _firestore.collection('orders').doc(orderId).update({
                 'status': newStatus,
-                'updatedAt': ServerValue.timestamp,
+                'updatedAt': FieldValue.serverTimestamp(),
               });
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -59,7 +83,6 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
     );
   }
 
-  // Xóa đơn hàng
   void _deleteOrder(String orderId) {
     showDialog(
       context: context,
@@ -73,7 +96,7 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              await _database.child(orderId).remove();
+              await _firestore.collection('orders').doc(orderId).delete();
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text("Đã xóa đơn hàng")),
@@ -94,36 +117,43 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
         title: Text("Quản lý trạng thái đơn hàng"),
         backgroundColor: Colors.blueGrey,
       ),
-      body: StreamBuilder(
-        stream: _database.onValue,
-        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore.collection('orders').snapshots(),
+        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(child: Text("Không có đơn hàng nào"));
           }
 
-          Map<dynamic, dynamic> orders = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-          List<Map<String, dynamic>> orderList = [];
-          orders.forEach((key, value) {
-            orderList.add(Map<String, dynamic>.from(value)..['id'] = key);
-          });
+          List<DocumentSnapshot> orders = snapshot.data!.docs;
 
-          // Sắp xếp theo ngày đặt hàng (mới nhất trước)
-          orderList.sort((a, b) => (b['date'] ?? 0).compareTo(a['date'] ?? 0));
+          // Sắp xếp với xử lý trường hợp date không tồn tại
+          orders.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            Timestamp? aTimestamp = aData.containsKey('date') && aData['date'] is Timestamp
+                ? aData['date'] as Timestamp
+                : null;
+            Timestamp? bTimestamp = bData.containsKey('date') && bData['date'] is Timestamp
+                ? bData['date'] as Timestamp
+                : null;
+            return (bTimestamp?.millisecondsSinceEpoch ?? 0)
+                .compareTo(aTimestamp?.millisecondsSinceEpoch ?? 0);
+          });
 
           return ListView.builder(
             padding: EdgeInsets.all(16.0),
-            itemCount: orderList.length,
+            itemCount: orders.length,
             itemBuilder: (context, index) {
-              final order = orderList[index];
-              final formattedDate = order['date'] != null
-                  ? DateFormat('dd/MM/yyyy HH:mm').format(
-                  DateTime.fromMillisecondsSinceEpoch(order['date'] as int))
+              final order = orders[index];
+              final orderData = order.data() as Map<String, dynamic>;
+              final formattedDate = orderData.containsKey('date') && orderData['date'] is Timestamp
+                  ? DateFormat('dd/MM/yyyy HH:mm').format((orderData['date'] as Timestamp).toDate())
                   : 'Không xác định';
               final formattedTotal = NumberFormat.currency(locale: 'vi_VN', symbol: '₫')
-                  .format(order['totalPrice'] ?? 0);
+                  .format(orderData['totalPrice'] ?? 0);
 
               return Card(
                 elevation: 3,
@@ -137,20 +167,20 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "Đơn hàng #${order['id'].substring(0, 8)}...",
+                            "Đơn hàng #${order.id.substring(0, 8)}...",
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            order['status'],
+                            orderData['status'] ?? 'Không xác định',
                             style: TextStyle(
-                              color: _getStatusColor(order['status']),
+                              color: _getStatusColor(orderData['status'] ?? ''),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                       SizedBox(height: 8),
-                      Text("Khách hàng: ${order['userId'].substring(0, 8)}..."),
+                      Text("Khách hàng: ${orderData['userId']?.substring(0, 8) ?? 'N/A'}..."),
                       Text("Ngày đặt: $formattedDate"),
                       Text("Tổng tiền: $formattedTotal"),
                       SizedBox(height: 8),
@@ -159,11 +189,11 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
                         children: [
                           IconButton(
                             icon: Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () => _updateOrderStatus(order['id'], order['status']),
+                            onPressed: () => _updateOrderStatus(order.id, orderData['status'] ?? 'Chờ xác nhận'),
                           ),
                           IconButton(
                             icon: Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _deleteOrder(order['id']),
+                            onPressed: () => _deleteOrder(order.id),
                           ),
                         ],
                       ),
@@ -178,7 +208,6 @@ class _AdminOrderManagementScreenState extends State<AdminOrderManagementScreen>
     );
   }
 
-  // Lấy màu sắc dựa trên trạng thái
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Chờ xác nhận':

@@ -1,6 +1,5 @@
-// lib/cart/cart_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class CartScreen extends StatefulWidget {
@@ -10,17 +9,17 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   double totalPrice = 0.0;
 
   Future<void> _updateQuantity(String key, int quantity) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final itemRef = _database.child('carts').child(user.uid).child('items').child(key);
+    final itemRef = _firestore.collection('carts').doc(user.uid).collection('items').doc(key);
 
     if (quantity <= 0) {
-      await itemRef.remove();
+      await itemRef.delete();
     } else {
       await itemRef.update({'quantity': quantity});
     }
@@ -30,21 +29,22 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Giỏ hàng')),
-      body: StreamBuilder(
-        stream: _database.child('carts').child(_auth.currentUser!.uid).child('items').onValue,
-        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore.collection('carts').doc(_auth.currentUser!.uid).collection('items').snapshots(),
+        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(child: Text('Giỏ hàng trống.'));
           }
 
-          Map<dynamic, dynamic> cartItems = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-          List<Map<String, dynamic>> cartList = [];
-          cartItems.forEach((key, value) {
-            cartList.add(Map<String, dynamic>.from(value)..['key'] = key);
-          });
+          List<Map<String, dynamic>> cartList = snapshot.data!.docs.map((doc) {
+            return {
+              'key': doc.id,
+              ...doc.data() as Map<String, dynamic>,
+            };
+          }).toList();
 
           totalPrice = cartList.fold(0.0, (sum, item) {
             return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];

@@ -1,9 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Để định dạng ngày
-import 'order_list_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'order_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -12,7 +11,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('users');
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   Map<String, dynamic>? userData;
   String? verificationCode;
@@ -26,10 +24,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     User? user = _auth.currentUser;
     if (user != null) {
-      DataSnapshot snapshot = await _database.child(user.uid).get();
+      DocumentSnapshot snapshot = await _firestore.collection('users').doc(user.uid).get();
       if (snapshot.exists) {
         setState(() {
-          userData = Map<String, dynamic>.from(snapshot.value as Map);
+          userData = snapshot.data() as Map<String, dynamic>;
         });
       }
     }
@@ -42,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _firestore.collection('email_verifications').doc(user.uid).set({
         'code': verificationCode,
         'newEmail': newEmail,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'timestamp': FieldValue.serverTimestamp(),
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Mã xác minh đã được gửi đến $newEmail. Vui lòng kiểm tra email!')),
@@ -76,7 +74,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (data['code'] == codeController.text.trim()) {
                     try {
                       await user.updateEmail(newEmail);
-                      await _database.child(user.uid).update({
+                      await _firestore.collection('users').doc(user.uid).update({
                         'email': newEmail,
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -136,7 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     await _sendVerificationEmail(newEmail);
                     await _showVerificationDialog(newEmail);
                   } else if (field == 'Tên') {
-                    await _database.child(user.uid).update({
+                    await _firestore.collection('users').doc(user.uid).update({
                       'name': controller.text.trim(),
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _loadUserData();
                     Navigator.pop(context);
                   } else if (field == 'Địa chỉ') {
-                    await _database.child(user.uid).update({
+                    await _firestore.collection('users').doc(user.uid).update({
                       'address': controller.text.trim(),
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -154,7 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _loadUserData();
                     Navigator.pop(context);
                   } else if (field == 'Tuổi') {
-                    await _database.child(user.uid).update({
+                    await _firestore.collection('users').doc(user.uid).update({
                       'age': int.tryParse(controller.text.trim()) ?? 0,
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -163,7 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _loadUserData();
                     Navigator.pop(context);
                   } else if (field == 'Giới tính') {
-                    await _database.child(user.uid).update({
+                    await _firestore.collection('users').doc(user.uid).update({
                       'gender': controller.text.trim(),
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -197,8 +195,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     String formattedDate = userData?['created_at'] != null
-        ? DateFormat('dd/MM/yyyy HH:mm').format(
-        DateTime.fromMillisecondsSinceEpoch(userData!['created_at'] as int))
+        ? DateFormat('dd/MM/yyyy HH:mm').format(userData!['created_at'].toDate())
         : 'Không xác định';
 
     return Scaffold(

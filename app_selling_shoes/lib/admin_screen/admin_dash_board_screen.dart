@@ -1,28 +1,49 @@
-// admin_dash_board_screen.dart
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'user_list_screen.dart';
 import 'product_management_screen.dart';
-import 'admin_order_management_screen.dart'; // Thêm import mới
+import 'admin_order_management_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   @override
   _AdminDashboardScreenState createState() => _AdminDashboardScreenState();
 }
 
-class AuthStatus {
-  static bool isAdmin = false;
-}
-
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('products');
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
   final TextEditingController imageUrlController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
-  final TextEditingController stockController = TextEditingController(); // Thêm controller cho stock
+  final TextEditingController stockController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminRole();
+  }
+
+  void _checkAdminRole() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentSnapshot snapshot = await _firestore.collection('users').doc(user.uid).get();
+      if (snapshot.exists) {
+        Map<String, dynamic> userData = snapshot.data() as Map<String, dynamic>;
+        if (userData['role'] != 'admin') {
+          Navigator.pushReplacementNamed(context, '/home');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Bạn không có quyền truy cập!")),
+          );
+        }
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
   void _addProduct() async {
     if (nameController.text.isEmpty || priceController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -31,28 +52,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return;
     }
 
-    String key = _database.push().key!;
-    await _database.child(key).set({
-      'id': key,
-      'name': nameController.text.trim(),
-      'price': double.tryParse(priceController.text.trim()) ?? 0.0,
-      'image_url': imageUrlController.text.trim(),
-      'description': descriptionController.text.trim(),
-      'category_id': categoryController.text.trim(),
-      'created_at': ServerValue.timestamp,
-      'stock': int.tryParse(stockController.text.trim()) ?? 0, // Lấy giá trị stock từ TextField
-    });
+    // Kiểm tra XSS
+    RegExp htmlTagRegExp = RegExp(r'<[^>]+>');
+    if (htmlTagRegExp.hasMatch(nameController.text) || htmlTagRegExp.hasMatch(descriptionController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Tên và mô tả không được chứa mã HTML")),
+      );
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Đã thêm sản phẩm thành công")),
-    );
+    // Kiểm tra giá và số lượng tồn kho
+    double? price = double.tryParse(priceController.text.trim());
+    int? stock = int.tryParse(stockController.text.trim());
+    if (price == null || price <= 0 || stock == null || stock < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Giá phải lớn hơn 0 và số lượng tồn kho không âm")),
+      );
+      return;
+    }
+
+    // Kiểm tra URL hình ảnh
+    String imageUrl = imageUrlController.text.trim();
+    if (!imageUrl.startsWith('https://') && imageUrl.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("URL hình ảnh phải bắt đầu bằng https://")),
+      );
+      return;
+    }
+
+    try {
+      DocumentReference docRef = await _firestore.collection('products').add({
+        'name': nameController.text.trim(),
+        'price': price,
+        'image_url': imageUrl,
+        'description': descriptionController.text.trim(),
+        'category_id': categoryController.text.trim(),
+        'created_at': FieldValue.serverTimestamp(),
+        'stock': stock,
+      });
+      print("Đã thêm sản phẩm với ID: ${docRef.id}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đã thêm sản phẩm thành công")),
+      );
+    } catch (e) {
+      print("Lỗi khi thêm sản phẩm: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Lỗi khi thêm sản phẩm: $e")),
+      );
+      return;
+    }
 
     nameController.clear();
     priceController.clear();
     imageUrlController.clear();
     descriptionController.clear();
     categoryController.clear();
-    stockController.clear(); // Xóa giá trị stock
+    stockController.clear();
   }
 
   @override
@@ -155,7 +210,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => AdminOrderManagementScreen()), // Cập nhật điều hướng
+                  MaterialPageRoute(builder: (_) => AdminOrderManagementScreen()),
                 );
               },
               child: Text("Quản lý trạng thái đơn hàng"),

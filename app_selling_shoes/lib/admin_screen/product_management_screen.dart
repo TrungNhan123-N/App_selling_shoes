@@ -1,4 +1,4 @@
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class ProductManagementScreen extends StatefulWidget {
@@ -7,7 +7,7 @@ class ProductManagementScreen extends StatefulWidget {
 }
 
 class _ProductManagementScreenState extends State<ProductManagementScreen> {
-  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('products');
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
   final TextEditingController imageUrlController = TextEditingController();
@@ -43,14 +43,33 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: Text("Hủy")),
           ElevatedButton(
             onPressed: () async {
-              await _database.child(key).update({
-                'name': nameController.text.trim(),
-                'price': double.parse(priceController.text.trim()),
-                'image_url': imageUrlController.text.trim(),
-                'description': descriptionController.text.trim(),
-                'category_id': categoryController.text.trim(),
-                'stock': int.tryParse(stockController.text.trim()) ?? 0,
-              });
+              try {
+                double? price = double.tryParse(priceController.text.trim());
+                int? stock = int.tryParse(stockController.text.trim());
+                if (price == null || stock == null || price <= 0 || stock < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Giá phải lớn hơn 0 và số lượng không âm")),
+                  );
+                  return;
+                }
+                await _firestore.collection('products').doc(key).update({
+                  'name': nameController.text.trim(),
+                  'price': price,
+                  'image_url': imageUrlController.text.trim(),
+                  'description': descriptionController.text.trim(),
+                  'category_id': categoryController.text.trim(),
+                  'stock': stock,
+                });
+                print("Đã cập nhật sản phẩm với ID: $key");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Đã cập nhật sản phẩm")),
+                );
+              } catch (e) {
+                print("Lỗi khi cập nhật sản phẩm: $e");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Lỗi khi cập nhật: $e")),
+                );
+              }
               Navigator.pop(context);
               _clearFields();
             },
@@ -61,10 +80,38 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  void _deleteProduct(String key) async {
-    await _database.child(key).remove();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Đã xóa sản phẩm")),
+  void _deleteProduct(String key) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Xác nhận xóa"),
+        content: const Text("Bạn có chắc muốn xóa sản phẩm này?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Hủy"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await _firestore.collection('products').doc(key).delete();
+                print("Đã xóa sản phẩm với ID: $key");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Đã xóa sản phẩm")),
+                );
+              } catch (e) {
+                print("Lỗi khi xóa sản phẩm: $e");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Lỗi khi xóa: $e")),
+                );
+              }
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("Xóa"),
+          ),
+        ],
+      ),
     );
   }
 
@@ -80,61 +127,133 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Quản lý sản phẩm")),
+      appBar: AppBar(
+        title: Text("Quản lý sản phẩm"),
+        backgroundColor: Colors.blueGrey,
+      ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder(
-                stream: _database.onValue,
-                builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
-                  if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
-                    return Center(child: Text("Không có sản phẩm"));
-                  }
+        padding: const EdgeInsets.all(16.0),
+        child: StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('products').snapshots(),
+          builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Center(child: Text("Không có sản phẩm"));
+            }
 
-                  Map<dynamic, dynamic> products = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-                  List<Map<String, dynamic>> productList = [];
-                  products.forEach((key, value) {
-                    productList.add(Map<String, dynamic>.from(value)..['key'] = key);
-                  });
+            List<Map<String, dynamic>> productList = snapshot.data!.docs.map((doc) {
+              return {
+                'key': doc.id,
+                ...doc.data() as Map<String, dynamic>,
+              };
+            }).toList();
 
-                  return ListView.builder(
-                    itemCount: productList.length,
-                    itemBuilder: (context, index) {
-                      final product = productList[index];
-                      return ListTile(
-                        leading: product['image_url'] != null
-                            ? Image.network(product['image_url'], width: 50, height: 50, fit: BoxFit.cover)
-                            : Icon(Icons.image),
-                        title: Text(product['name']),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("\$${product['price']}"),
-                            Text("Tồn kho: ${product['stock'] ?? 0}"),
-                          ],
+            return ListView.builder(
+              itemCount: productList.length,
+              itemBuilder: (context, index) {
+                final product = productList[index];
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.symmetric(vertical: 8.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Product Image
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: product['image_url'] != null && product['image_url'].isNotEmpty
+                              ? Image.network(
+                            product['image_url'],
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              // Log the invalid URL with more details
+                              print("Failed to load image for product ID: ${product['key']}, URL: ${product['image_url']}, Error: $error");
+                              return Container(
+                                width: 60,
+                                height: 60,
+                                color: Colors.grey[300],
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  color: Colors.grey[600],
+                                  size: 30,
+                                ),
+                              );
+                            },
+                          )
+                              : Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey[300],
+                            child: Icon(
+                              Icons.image,
+                              color: Colors.grey[600],
+                              size: 30,
+                            ),
+                          ),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        const SizedBox(width: 12.0),
+                        // Product Details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product['name'] ?? 'Không có tên',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4.0),
+                              Text(
+                                "\$${product['price']?.toStringAsFixed(2) ?? '0.00'}",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.red[700],
+                                ),
+                              ),
+                              const SizedBox(height: 4.0),
+                              Text(
+                                "Tồn kho: ${product['stock'] ?? 0}",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Action Buttons
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             IconButton(
-                              icon: Icon(Icons.edit),
+                              icon: const Icon(Icons.edit, color: Colors.blue),
                               onPressed: () => _editProduct(product['key'], product),
+                              tooltip: 'Chỉnh sửa',
                             ),
                             IconButton(
-                              icon: Icon(Icons.delete),
+                              icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () => _deleteProduct(product['key']),
+                              tooltip: 'Xóa',
                             ),
                           ],
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
     );

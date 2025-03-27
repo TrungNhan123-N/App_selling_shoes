@@ -1,8 +1,8 @@
-// lib/orders/order_list_screen.dart
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'order_detail_screen.dart';
 import 'profile_screen.dart';
 
@@ -13,73 +13,67 @@ class OrderListScreen extends StatefulWidget {
 
 class _OrderListScreenState extends State<OrderListScreen> with SingleTickerProviderStateMixin {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _database = FirebaseDatabase.instance.ref().child('orders');
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late TabController _tabController;
-  StreamSubscription<DatabaseEvent>? _orderSubscription;
   Map<String, int> orderCounts = {
     'Chờ xác nhận': 0,
     'Chờ lấy hàng': 0,
     'Chờ giao hàng': 0,
     'Đánh giá': 0,
   };
-  List<Map<String, dynamic>>? cachedOrders; // Lưu trữ danh sách đơn hàng để giữ dữ liệu
+  List<Map<String, dynamic>>? cachedOrders;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _loadOrders(); // Tải danh sách đơn hàng khi khởi tạo
+    _loadOrders();
   }
 
   void _loadOrders() {
     User? user = _auth.currentUser;
     if (user == null) return;
 
-    // Hủy subscription cũ để tránh lỗi "Stream has already been listened to"
-    _orderSubscription?.cancel();
-    Stream<DatabaseEvent> orderStream = _database
-        .orderByChild('userId')
-        .equalTo(user.uid)
-        .onValue;
-
-    _orderSubscription = orderStream.listen((event) {
-      if (!event.snapshot.exists || event.snapshot.value == null) {
+    _firestore.collection('orders')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.docs.isEmpty) {
         setState(() {
           cachedOrders = [];
           orderCounts.updateAll((key, value) => 0);
         });
-        print("No orders found for user ${user.uid}");
         return;
       }
 
-      Map<dynamic, dynamic> orders = event.snapshot.value as Map<dynamic, dynamic>;
-      List<Map<String, dynamic>> orderList = [];
-      orderCounts.updateAll((key, value) => 0); // Reset counts
+      List<Map<String, dynamic>> orderList = snapshot.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
 
-      orders.forEach((key, value) {
-        if (value is Map && value['status'] is String) {
-          String status = value['status'] as String;
-          orderList.add(Map<String, dynamic>.from(value)..['id'] = key);
-          orderCounts.update(status, (value) => value + 1, ifAbsent: () => 1);
-        } else {
-          print("Invalid order data for key $key: $value");
-        }
-      });
+      orderCounts.updateAll((key, value) => 0);
+      for (var order in orderList) {
+        String status = order['status'] as String;
+        orderCounts.update(status, (value) => value + 1, ifAbsent: () => 1);
+      }
 
-      // Sắp xếp đơn hàng theo ngày đặt (mới nhất trước)
-      orderList.sort((a, b) => (b['date'] ?? 0).compareTo(a['date'] ?? 0));
+      orderList.sort((a, b) => (b['date'] is Timestamp ? (b['date'] as Timestamp).millisecondsSinceEpoch : 0)
+          .compareTo(a['date'] is Timestamp ? (a['date'] as Timestamp).millisecondsSinceEpoch : 0));
 
       setState(() {
         cachedOrders = orderList;
       });
     }, onError: (error) {
-      print("Error listening to order stream: $error");
+      setState(() {
+        cachedOrders = [];
+      });
     });
   }
 
   @override
   void dispose() {
-    _orderSubscription?.cancel(); // Hủy subscription khi dispose
     _tabController.dispose();
     super.dispose();
   }
@@ -166,7 +160,15 @@ class _OrderListScreenState extends State<OrderListScreen> with SingleTickerProv
 
   Widget _buildOrderList(String status) {
     if (cachedOrders == null) {
-      return Center(child: CircularProgressIndicator()); // Hiển thị loading nếu chưa tải dữ liệu
+      return FutureBuilder(
+        future: Future.delayed(Duration(seconds: 5)),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          return Center(child: Text("Không thể tải đơn hàng, kiểm tra kết nối"));
+        },
+      );
     }
 
     List<Map<String, dynamic>> filteredOrders = cachedOrders!.where((order) {
@@ -199,15 +201,16 @@ class _OrderListScreenState extends State<OrderListScreen> with SingleTickerProv
     return ListView(
       padding: const EdgeInsets.all(16),
       children: filteredOrders.map((order) {
+        String formattedDate = order['date'] is Timestamp
+            ? DateFormat('dd/MM/yyyy HH:mm').format((order['date'] as Timestamp).toDate())
+            : 'N/A';
         return Card(
           elevation: 3,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: ListTile(
             leading: Icon(_getIconForStatus(order['status']), color: Colors.amber, size: 30),
             title: Text("Đơn hàng #${order['id']}", style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(
-              "Ngày đặt: ${DateTime.fromMillisecondsSinceEpoch(order['date'])} - Trạng thái: ${order['status']}",
-            ),
+            subtitle: Text("Ngày đặt: $formattedDate - Trạng thái: ${order['status']}"),
             trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             onTap: () {
               Navigator.push(

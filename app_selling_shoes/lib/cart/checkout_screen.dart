@@ -1,6 +1,5 @@
-// lib/cart/checkout_screen.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import '../orders/order_list_screen.dart';
 
@@ -11,7 +10,7 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   double totalPrice = 0.0;
   List<Map<String, dynamic>> checkoutItems = [];
 
@@ -25,13 +24,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    DataSnapshot cartSnapshot = await _database.child('carts').child(user.uid).child('items').get();
-    if (cartSnapshot.exists) {
-      Map<dynamic, dynamic> items = cartSnapshot.value as Map<dynamic, dynamic>;
-      List<Map<String, dynamic>> cartList = [];
-      items.forEach((key, value) {
-        cartList.add(Map<String, dynamic>.from(value)..['key'] = key);
-      });
+    QuerySnapshot cartSnapshot = await _firestore.collection('carts').doc(user.uid).collection('items').get();
+    if (cartSnapshot.docs.isNotEmpty) {
+      List<Map<String, dynamic>> cartList = cartSnapshot.docs.map((doc) {
+        return {
+          'key': doc.id,
+          ...doc.data() as Map<String, dynamic>,
+        };
+      }).toList();
 
       setState(() {
         checkoutItems = cartList;
@@ -44,36 +44,77 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _placeOrder() async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Vui lòng đăng nhập để thanh toán")),
+      );
+      return;
+    }
 
-    String orderKey = _database.child('orders').push().key!;
-    await _database.child('orders').child(orderKey).set({
-      'id': orderKey,
-      'userId': user.uid,
-      'items': checkoutItems,
-      'totalPrice': totalPrice,
-      'status': 'Chờ xác nhận',
-      'date': ServerValue.timestamp,
-    });
+    if (checkoutItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Giỏ hàng trống, không thể đặt hàng")),
+      );
+      return;
+    }
 
-    // Xóa giỏ hàng
-    await _database.child('carts').child(user.uid).child('items').remove();
+    try {
+      await _firestore.runTransaction((transaction) async {
+        // Kiểm tra và cập nhật tồn kho
+        for (var item in checkoutItems) {
+          DocumentReference productRef = _firestore.collection('products').doc(item['key']);
+          DocumentSnapshot productDoc = await transaction.get(productRef);
+          if (!productDoc.exists) {
+            throw Exception("${item['name']} không tồn tại");
+          }
+          int currentStock = (productDoc.data() as Map<String, dynamic>)['stock'] ?? 0;
+          if (currentStock < item['quantity']) {
+            throw Exception("${item['name']} không đủ hàng trong kho");
+          }
+          transaction.update(productRef, {'stock': currentStock - item['quantity']});
+        }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Đặt hàng thành công!")),
-    );
+        // Tạo đơn hàng
+        DocumentReference orderRef = await _firestore.collection('orders').add({
+          'userId': user.uid,
+          'items': checkoutItems,
+          'totalPrice': totalPrice,
+          'status': 'Chờ xác nhận',
+          'date': FieldValue.serverTimestamp(),
+        });
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => OrderListScreen()),
-    );
+        // Xóa giỏ hàng
+        final cartItemsRef = _firestore.collection('carts').doc(user.uid).collection('items');
+        QuerySnapshot cartSnapshot = await cartItemsRef.get();
+        for (var doc in cartSnapshot.docs) {
+          transaction.delete(doc.reference);
+        }
+
+        return orderRef.id;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đặt hàng thành công!")),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => OrderListScreen()),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Lỗi khi đặt hàng: $e")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Thanh toán')),
-      body: Column(
+      body: checkoutItems.isEmpty
+          ? Center(child: Text("Giỏ hàng trống, vui lòng thêm sản phẩm trước khi thanh toán"))
+          : Column(
         children: [
           Expanded(
             child: ListView.builder(
@@ -82,14 +123,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 var item = checkoutItems[index];
                 return ListTile(
                   leading: Image.network(
-                    item['image_url'],
+                    item['image_url'] ?? '',
                     width: 50,
                     height: 50,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50),
                   ),
-                  title: Text(item['name']),
-                  subtitle: Text("Số lượng: ${item['quantity']} - Giá: \$${item['price']}"),
+                  title: Text(item['name'] ?? 'Không có tên'),
+                  subtitle: Text("Số lượng: ${item['quantity'] ?? 0} - Giá: \$${item['price'] ?? 0}"),
                 );
               },
             ),
@@ -106,7 +147,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Tổng tiền:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text("\$${totalPrice.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
+                    Text("\$${totalPrice.toStringAsFixed(2)}",
+                        style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 SizedBox(height: 10),

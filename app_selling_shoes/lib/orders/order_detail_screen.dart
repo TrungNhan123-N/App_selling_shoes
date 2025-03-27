@@ -1,22 +1,20 @@
-import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final Map<String, dynamic> order;
 
-  OrderDetailScreen({required Map<Object?, Object?> order})
-      : order = Map<String, dynamic>.from(order); // Chuyển đổi dữ liệu đúng kiểu
+  OrderDetailScreen({required this.order});
 
   @override
   Widget build(BuildContext context) {
-    final items = (order['items'] as List<dynamic>? ?? [])
-        .map((item) => Map<String, dynamic>.from(item as Map))
-        .toList(); // Chuyển đổi từng phần tử của danh sách sản phẩm
+    final items = (order['items'] is List<dynamic>
+        ? order['items'] as List<dynamic>
+        : []).map((item) => Map<String, dynamic>.from(item as Map? ?? {})).toList();
 
-    final formattedDate = order['date'] != null
-        ? DateFormat('dd/MM/yyyy').format(
-        DateTime.fromMillisecondsSinceEpoch(order['date'] as int))
+    final formattedDate = order['date'] is Timestamp
+        ? DateFormat('dd/MM/yyyy HH:mm').format((order['date'] as Timestamp).toDate())
         : 'Không xác định';
 
     final formattedTotal = NumberFormat.currency(locale: 'vi_VN', symbol: '₫')
@@ -51,17 +49,18 @@ class OrderDetailScreen extends StatelessWidget {
                     elevation: 2,
                     margin: EdgeInsets.symmetric(vertical: 8),
                     child: ListTile(
-                      leading: item['image_url'] != null
+                      leading: item['image_url'] != null && item['image_url'].toString().isNotEmpty
                           ? Image.network(
                         item['image_url'],
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50),
                       )
                           : Icon(Icons.image, size: 50, color: Colors.grey),
-                      title: Text(item['name']),
+                      title: Text(item['name'] ?? 'Không có tên'),
                       subtitle: Text(
-                          'Số lượng: ${item['quantity']} - Giá: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(item['price'])}'),
+                          'Số lượng: ${item['quantity'] ?? 0} - Giá: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(item['price'] ?? 0)}'),
                     ),
                   );
                 },
