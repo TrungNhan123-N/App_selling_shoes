@@ -200,7 +200,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => UserListScreen()),
+                  MaterialPageRoute(builder: (_) => AdminUserManagementScreen()),
                 );
               },
               child: Text("Xem danh sách người dùng"),
