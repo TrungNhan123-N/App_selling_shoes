@@ -86,18 +86,18 @@ class _OrderListScreenState extends State<OrderListScreen> with SingleTickerProv
     }
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: // order_list_screen.dart
+      AppBar(
         backgroundColor: Colors.blueGrey,
         title: Text('Đơn hàng của tôi', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
+            icon: Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadOrders,
+          ),
+          IconButton(
             icon: Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ProfileScreen()),
-              );
-            },
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen())),
           ),
         ],
         bottom: TabBar(

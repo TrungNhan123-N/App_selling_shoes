@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return true;
     } catch (e) {
       print("Lỗi khi kiểm tra số lần đăng nhập: $e");
-      return true; // Cho phép đăng nhập nếu kiểm tra thất bại
+      return true;
     }
   }
 
@@ -92,80 +92,47 @@ class _LoginScreenState extends State<LoginScreen> {
 
     bool canLogin = await _checkLoginAttempts(email);
     if (!canLogin) {
-      print("Không thể đăng nhập do vượt quá số lần thử");
+      print("Login blocked: Too many attempts for $email");
       return;
     }
 
     setState(() => _isLoading = true);
-    print("Bắt đầu quá trình đăng nhập...");
+    print("Starting login process for $email");
 
     try {
-      // Đăng nhập với Firebase Authentication
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      print("Đăng nhập thành công với UID: ${userCredential.user!.uid}");
-
-      String? token = await userCredential.user!.getIdToken();
-      print("Token: $token");
+      print("Login successful for UID: ${userCredential.user!.uid}");
 
       await _resetLoginAttempts(email);
-      print("Đã reset số lần thử đăng nhập");
-
-      // Truy vấn Firestore
       DocumentSnapshot userSnapshot = await _firestore.collection('users').doc(userCredential.user!.uid).get();
-      print("Kiểm tra dữ liệu người dùng trong Firestore...");
+      String role = userSnapshot.exists ? (userSnapshot.data() as Map<String, dynamic>)['role'] ?? 'user' : 'user';
 
-      String role;
-      if (userSnapshot.exists) {
-        Map<String, dynamic> userData = userSnapshot.data() as Map<String, dynamic>;
-        role = userData['role'] ?? 'user';
-        print("Vai trò từ Firestore: $role");
-      } else {
-        print("Người dùng không tồn tại trong Firestore, tạo mới với vai trò user...");
+      if (!userSnapshot.exists) {
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
           'uid': userCredential.user!.uid,
           'email': email,
           'role': 'user',
           'created_at': FieldValue.serverTimestamp(),
         });
-        role = 'user';
       }
 
-      // Điều hướng dựa trên vai trò
-      if (role == 'admin') {
-        AuthStatus.isAdmin = true;
-        print("Điều hướng đến AdminDashboardScreen...");
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => AdminDashboardScreen()),
-          );
-        }
-      } else {
-        AuthStatus.isAdmin = false;
-        print("Điều hướng đến TransferScreen...");
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const TransferScreen()),
-          );
-        }
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => role == 'admin' ? AdminDashboardScreen() : const TransferScreen()),
+        );
       }
-    } catch (e, stackTrace) {
-      // Bắt tất cả ngoại lệ
-      print("Lỗi trong quá trình đăng nhập: $e");
-      print("Stack trace: $stackTrace");
+    } catch (e) {
+      print("Login error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đã xảy ra lỗi: $e")),
+        SnackBar(content: Text("Đăng nhập thất bại: ${e.toString()}")),
       );
       await _incrementLoginAttempts(email);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-      print("Kết thúc quá trình đăng nhập");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

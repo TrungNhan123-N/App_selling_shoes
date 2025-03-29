@@ -10,21 +10,15 @@ class CategoryScreen extends StatelessWidget {
 
   CategoryScreen({required this.category});
 
+  // category.dart
   @override
   Widget build(BuildContext context) {
-    // Kiểm tra trạng thái đăng nhập
     User? user = _auth.currentUser;
-
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => LoginScreen()),
-        );
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
       });
-      return Scaffold(
-        body: Center(child: Text("Đang chuyển hướng đến đăng nhập...")),
-      );
+      return Scaffold(body: Center(child: Text("Đang chuyển hướng đến đăng nhập...")));
     }
 
     return Scaffold(
@@ -66,24 +60,19 @@ class CategoryScreen extends StatelessWidget {
             return Center(child: Text("Không có sản phẩm trong danh mục này"));
           }
 
-          List<Map<String, dynamic>> productList = [];
-          try {
-            productList = snapshot.data!.docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              return {
-                'key': doc.id,
-                'name': data['name'] != null ? data['name'].toString() : 'Không có tên',
-                'price': data['price']?.toDouble() ?? 0.0,
-                'image_url': data['image_url'] != null ? data['image_url'].toString() : null,
-                'description': data['description'] != null ? data['description'].toString() : null,
-                'category_id': data['category_id'] != null ? data['category_id'].toString() : null,
-                'created_at': data['created_at'],
-                'stock': data['stock'] as int?,
-              };
-            }).toList();
-          } catch (e) {
-            return Center(child: Text("Lỗi xử lý dữ liệu: $e"));
-          }
+          List<Map<String, dynamic>> productList = snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return {
+              'key': doc.id,
+              'name': data['name'] ?? 'Không có tên',
+              'price': data['price']?.toDouble() ?? 0.0,
+              'image_url': data['image_url'],
+              'description': data['description'],
+              'category_id': data['category_id'],
+              'created_at': data['created_at'],
+              'stock': data['stock'] as int?,
+            };
+          }).toList();
 
           return ListView.builder(
             itemCount: productList.length,
@@ -92,16 +81,14 @@ class CategoryScreen extends StatelessWidget {
               return ListTile(
                 leading: product['image_url'] != null
                     ? Image.network(
-                  product['image_url'] as String,
+                  product['image_url'],
                   width: 50,
                   height: 50,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.image_not_supported);
-                  },
+                  errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported),
                 )
                     : Icon(Icons.category),
-                title: Text(product['name'] as String),
+                title: Text(product['name']),
                 subtitle: Text('\$${product['price'].toStringAsFixed(2)}'),
                 onTap: () {
                   Navigator.pushNamed(context, '/product_detail', arguments: product);

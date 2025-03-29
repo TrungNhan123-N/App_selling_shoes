@@ -12,6 +12,7 @@ class _CartScreenState extends State<CartScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   double totalPrice = 0.0;
 
+  // cart_screen.dart
   Future<void> _updateQuantity(String key, int quantity) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -19,7 +20,18 @@ class _CartScreenState extends State<CartScreen> {
     final itemRef = _firestore.collection('carts').doc(user.uid).collection('items').doc(key);
 
     if (quantity <= 0) {
-      await itemRef.delete();
+      bool? confirm = await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text("Xác nhận"),
+          content: Text("Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text("Hủy")),
+            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: Text("Xóa")),
+          ],
+        ),
+      );
+      if (confirm == true) await itemRef.delete();
     } else {
       await itemRef.update({'quantity': quantity});
     }

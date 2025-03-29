@@ -69,11 +69,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đăng ký thành công với vai trò $role!")),
-      );
-
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Đăng ký thành công! UID: ${userCredential.user!.uid} - Vai trò: $role")),
+        );
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+      }//
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {

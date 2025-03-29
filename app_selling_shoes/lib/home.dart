@@ -12,10 +12,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance; // Thêm FirebaseAuth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
-
   String _searchQuery = '';
+  int _limit = 10; // Giới hạn số sản phẩm mỗi lần tải
+  DocumentSnapshot? _lastDocument;
 
   final List<String> promoImages = [
     "https://img.pikbest.com/templates/20240728/banner-sale-banner-introducing-shoe-shop-_10686281.jpg!sw800",
@@ -24,33 +25,45 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    // Kiểm tra trạng thái đăng nhập
-    User? user = _auth.currentUser;
-
-    if (user == null) {
-      // Nếu chưa đăng nhập, chuyển hướng đến màn hình đăng nhập
+  void initState() {
+    super.initState();
+    if (_auth.currentUser == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => LoginScreen()),
-        );
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
       });
-      return Scaffold(
-        body: Center(child: Text("Đang chuyển hướng đến đăng nhập...")),
-      );
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    Query query = _firestore.collection('products')
+        .orderBy('created_at', descending: true)
+        .limit(_limit);
+
+    if (_lastDocument != null) {
+      query = query.startAfterDocument(_lastDocument!);
+    }
+
+    QuerySnapshot snapshot = await query.get();
+    if (snapshot.docs.isNotEmpty) {
+      _lastDocument = snapshot.docs.last;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    User? user = _auth.currentUser;
+    if (user == null) {
+      return Scaffold(body: Center(child: Text("Đang chuyển hướng đến đăng nhập...")));
     }
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blueGrey,
-        title: Text('Shoe Store', semanticsLabel: 'home_screen'),
+        title: Text('Shoe Store'),
         actions: [
           IconButton(
             icon: Icon(Icons.shopping_cart),
-            onPressed: () {
-              Navigator.pushNamed(context, '/cart');
-            },
+            onPressed: () => Navigator.pushNamed(context, '/cart'),
           ),
         ],
       ),
@@ -115,13 +128,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('products').orderBy('created_at', descending: true).snapshots(),
+              stream: _firestore.collection('products')
+                  .orderBy('created_at', descending: true)
+                  .limit(_limit)
+                  .snapshots(),
               builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  // Xử lý lỗi permission-denied
                   if (snapshot.error.toString().contains('permission-denied')) {
                     return Center(
                       child: Column(
@@ -148,58 +163,53 @@ class _HomeScreenState extends State<HomeScreen> {
                   return Center(child: Text("Không có sản phẩm"));
                 }
 
-                List<Map<String, dynamic>> productList = [];
-                try {
-                  productList = snapshot.data!.docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    return {
-                      'key': doc.id,
-                      'name': data['name'] != null ? data['name'].toString() : 'Không có tên',
-                      'price': data['price']?.toDouble() ?? 0.0,
-                      'image_url': data['image_url'] != null ? data['image_url'].toString() : null,
-                      'description': data['description'] != null ? data['description'].toString() : null,
-                      'category_id': data['category_id'] != null ? data['category_id'].toString() : null,
-                      'created_at': data['created_at'],
-                      'stock': data['stock'] as int?,
-                    };
-                  }).toList();
-                } catch (e) {
-                  return Center(child: Text("Lỗi xử lý dữ liệu: $e"));
-                }
+                List<Map<String, dynamic>> productList = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return {
+                    'key': doc.id,
+                    'name': data['name'] ?? 'Không có tên',
+                    'price': data['price']?.toDouble() ?? 0.0,
+                    'image_url': data['image_url'],
+                    'description': data['description'],
+                    'category_id': data['category_id'],
+                    'created_at': data['created_at'],
+                    'stock': data['stock'] as int?,
+                  };
+                }).toList();
 
                 final filteredProducts = productList
                     .where((product) => product['name'].toString().toLowerCase().contains(_searchQuery))
                     .toList();
 
-                return filteredProducts.isEmpty
-                    ? Center(child: Text("Không tìm thấy sản phẩm"))
-                    : ListView.builder(
-                  itemCount: filteredProducts.length,
-                  itemBuilder: (context, index) {
-                    final product = filteredProducts[index];
-                    return ListTile(
-                      leading: product['image_url'] != null && product['image_url'].isNotEmpty
-                          ? Image.network(
-                        product['image_url'],
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(child: CircularProgressIndicator());
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.broken_image, size: 50, color: Colors.red);
-                        },
-                      )
-                          : Icon(Icons.image, size: 50, color: Colors.grey),
-                      title: Text(product['name'] as String),
-                      subtitle: Text('\$${product['price'].toStringAsFixed(2)}'),
-                      onTap: () {
-                        Navigator.pushNamed(context, '/product_detail', arguments: product);
-                      },
-                    );
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification scrollInfo) {
+                    if (scrollInfo.metrics.pixels == scrollInfo.metrics.maxScrollExtent) {
+                      _loadMoreProducts();
+                    }
+                    return false;
                   },
+                  child: ListView.builder(
+                    itemCount: filteredProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = filteredProducts[index];
+                      return ListTile(
+                        leading: product['image_url'] != null && product['image_url'].isNotEmpty
+                            ? Image.network(
+                          product['image_url'],
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported),
+                        )
+                            : Icon(Icons.image),
+                        title: Text(product['name']),
+                        subtitle: Text('\$${product['price'].toStringAsFixed(2)}'),
+                        onTap: () {
+                          Navigator.pushNamed(context, '/product_detail', arguments: product);
+                        },
+                      );
+                    },
+                  ),
                 );
               },
             ),

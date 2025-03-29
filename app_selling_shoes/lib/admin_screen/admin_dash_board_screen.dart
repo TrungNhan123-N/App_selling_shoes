@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'user_list_screen.dart';
+import 'admin_user_management_screen.dart';
 import 'product_management_screen.dart';
 import 'admin_order_management_screen.dart';
 
@@ -44,6 +44,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
+  // admin_dash_board_screen.dart
   void _addProduct() async {
     if (nameController.text.isEmpty || priceController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -52,7 +53,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return;
     }
 
-    // Kiểm tra XSS
     RegExp htmlTagRegExp = RegExp(r'<[^>]+>');
     if (htmlTagRegExp.hasMatch(nameController.text) || htmlTagRegExp.hasMatch(descriptionController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -61,7 +61,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return;
     }
 
-    // Kiểm tra giá và số lượng tồn kho
     double? price = double.tryParse(priceController.text.trim());
     int? stock = int.tryParse(stockController.text.trim());
     if (price == null || price <= 0 || stock == null || stock < 0) {
@@ -71,11 +70,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return;
     }
 
-    // Kiểm tra URL hình ảnh
     String imageUrl = imageUrlController.text.trim();
     if (!imageUrl.startsWith('https://') && imageUrl.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("URL hình ảnh phải bắt đầu bằng https://")),
+      );
+      return;
+    }
+
+    // Kiểm tra trùng tên
+    QuerySnapshot existingProduct = await _firestore.collection('products')
+        .where('name', isEqualTo: nameController.text.trim())
+        .get();
+    if (existingProduct.docs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Sản phẩm với tên này đã tồn tại")),
       );
       return;
     }

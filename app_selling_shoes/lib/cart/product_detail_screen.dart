@@ -63,6 +63,8 @@ class ProductDetailScreen extends StatelessWidget {
   }
 
   @override
+  // product_detail_screen.dart
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(product['name'] ?? 'Không có tên')),
@@ -100,12 +102,13 @@ class ProductDetailScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton(
-                  onPressed: () => addToCart(context), // Truyền context vào hàm
+                  onPressed: () => addToCart(context),
                   child: Text("Thêm vào giỏ hàng"),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/checkout', arguments: product);
+                  onPressed: () async {
+                    await addToCart(context); // Thêm vào giỏ hàng trước
+                    Navigator.pushNamed(context, '/checkout');
                   },
                   child: Text("Mua ngay"),
                 ),

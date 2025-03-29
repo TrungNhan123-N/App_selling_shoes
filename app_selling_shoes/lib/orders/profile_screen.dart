@@ -1,3 +1,4 @@
+import 'package:bcrypt/bcrypt.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -194,9 +195,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    String formattedDate = userData?['created_at'] != null
-        ? DateFormat('dd/MM/yyyy HH:mm').format(userData!['created_at'].toDate())
-        : 'Không xác định';
+    String formattedDate = 'Không xác định';
+
+    if (userData?['created_at'] != null) {
+      var createdAt = userData!['created_at'];
+
+      if (createdAt is Timestamp) {
+        formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(createdAt.toDate());
+      } else if (createdAt is int) {
+        formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.fromMillisecondsSinceEpoch(createdAt));
+      } else if (createdAt is double) {
+        formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.fromMillisecondsSinceEpoch(createdAt.toInt()));
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -234,12 +245,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             isEmail: true,
           ),
-          Divider(),
+          // profile_screen.dart
           _buildProfileItem(
             icon: Icons.lock,
             title: 'Mật khẩu (Hash)',
             value: userData?['password'] ?? 'Không có dữ liệu',
-            onTap: () {},
+            onTap: () async {
+              TextEditingController newPasswordController = TextEditingController();
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Đổi mật khẩu'),
+                  content: TextField(
+                    controller: newPasswordController,
+                    decoration: InputDecoration(labelText: 'Mật khẩu mới'),
+                    obscureText: true,
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: Text('Hủy')),
+                    ElevatedButton(
+                      onPressed: () async {
+                        User? user = _auth.currentUser;
+                        if (user != null) {
+                          try {
+                            await user.updatePassword(newPasswordController.text.trim());
+                            String hashedPassword = BCrypt.hashpw(newPasswordController.text.trim(), BCrypt.gensalt());
+                            await _firestore.collection('users').doc(user.uid).update({'password': hashedPassword});
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã đổi mật khẩu')));
+                            Navigator.pop(context);
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+                          }
+                        }
+                      },
+                      child: Text('Lưu'),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
           Divider(),
           _buildProfileItem(
@@ -254,46 +298,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Divider(),
           _buildProfileItem(
-            icon: Icons.cake,
-            title: 'Tuổi',
-            value: userData?['age']?.toString() ?? '0',
-            onTap: () => _showEditDialog(
-              field: 'Tuổi',
-              initialValue: userData?['age']?.toString() ?? '0',
-              label: 'Nhập tuổi mới',
-              keyboardType: TextInputType.number,
-            ),
-          ),
-          Divider(),
-          _buildProfileItem(
-            icon: Icons.person_outline,
-            title: 'Giới tính',
-            value: userData?['gender'] ?? 'Không xác định',
-            onTap: () => _showEditDialog(
-              field: 'Giới tính',
-              initialValue: userData?['gender'] ?? 'Không xác định',
-              label: 'Nhập giới tính mới',
-            ),
-          ),
-          Divider(),
-          _buildProfileItem(
-            icon: Icons.admin_panel_settings,
-            title: 'Vai trò',
-            value: userData?['role'] ?? 'user',
-            onTap: () {},
-          ),
-          Divider(),
-          _buildProfileItem(
             icon: Icons.calendar_today,
             title: 'Ngày tạo',
             value: formattedDate,
-            onTap: () {},
-          ),
-          Divider(),
-          _buildProfileItem(
-            icon: Icons.perm_identity,
-            title: 'UID',
-            value: userData?['uid'] ?? 'Không có UID',
             onTap: () {},
           ),
           Divider(),
