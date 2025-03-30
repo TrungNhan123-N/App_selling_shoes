@@ -16,25 +16,23 @@ class ProductDetailScreen extends StatelessWidget {
       return;
     }
 
-    final cartRef = FirebaseFirestore.instance
-        .collection('carts')
-        .doc(user.uid)
-        .collection('items')
-        .doc(product['key']);
+    final cartRef = FirebaseFirestore.instance.collection('carts');
+    final cartQuery = await cartRef
+        .where('user_id', isEqualTo: user.uid)
+        .where('product_id', isEqualTo: product['id'])
+        .get();
 
     try {
-      DocumentSnapshot cartSnapshot = await cartRef.get();
-      if (cartSnapshot.exists) {
-        int currentQuantity = (cartSnapshot.data() as Map<String, dynamic>)['quantity'];
+      if (cartQuery.docs.isNotEmpty) {
+        final cartItem = cartQuery.docs.first;
+        int currentQuantity = cartItem['quantity'];
         if (currentQuantity + 1 > product['stock']) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Số lượng vượt quá tồn kho")),
           );
           return;
         }
-        await cartRef.update({
-          'quantity': FieldValue.increment(1),
-        });
+        await cartItem.reference.update({'quantity': FieldValue.increment(1)});
       } else {
         if (product['stock'] < 1) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -42,14 +40,14 @@ class ProductDetailScreen extends StatelessWidget {
           );
           return;
         }
-        await cartRef.set({
-          'productId': product['key'],
-          'name': product['name'],
-          'image_url': product['image_url'],
-          'price': product['price'],
-          'quantity': 1,
+        await cartRef.add({
           'user_id': user.uid,
-          'created_at': FieldValue.serverTimestamp(),
+          'product_id': product['id'],
+          'name': product['name'],
+          'price': product['price'],
+          'image_url': product['image_url'],
+          'quantity': 1,
+          'created_at': DateTime.now().millisecondsSinceEpoch,
         });
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -77,7 +75,8 @@ class ProductDetailScreen extends StatelessWidget {
                 product['image_url'],
                 height: 200,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 200),
+                errorBuilder: (context, error, stackTrace) =>
+                    Icon(Icons.image_not_supported, size: 200),
               )
                   : Icon(Icons.image_not_supported, size: 200),
             ),
@@ -100,7 +99,7 @@ class ProductDetailScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton(
-                  onPressed: () => addToCart(context), // Truyền context vào hàm
+                  onPressed: () => addToCart(context),
                   child: Text("Thêm vào giỏ hàng"),
                 ),
                 ElevatedButton(

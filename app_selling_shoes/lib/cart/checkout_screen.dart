@@ -24,13 +24,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    QuerySnapshot cartSnapshot = await _firestore.collection('carts').doc(user.uid).collection('items').get();
+    QuerySnapshot cartSnapshot = await _firestore
+        .collection('carts')
+        .where('user_id', isEqualTo: user.uid)
+        .get();
+
     if (cartSnapshot.docs.isNotEmpty) {
       List<Map<String, dynamic>> cartList = cartSnapshot.docs.map((doc) {
-        return {
-          'key': doc.id,
-          ...doc.data() as Map<String, dynamic>,
-        };
+        return {'cart_id': doc.id, ...doc.data() as Map<String, dynamic>};
       }).toList();
 
       setState(() {
@@ -60,9 +61,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     try {
       await _firestore.runTransaction((transaction) async {
-        // Kiểm tra và cập nhật tồn kho
         for (var item in checkoutItems) {
-          DocumentReference productRef = _firestore.collection('products').doc(item['key']);
+          DocumentReference productRef = _firestore.collection('products').doc(item['product_id']);
           DocumentSnapshot productDoc = await transaction.get(productRef);
           if (!productDoc.exists) {
             throw Exception("${item['name']} không tồn tại");
@@ -74,23 +74,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           transaction.update(productRef, {'stock': currentStock - item['quantity']});
         }
 
-        // Tạo đơn hàng
         DocumentReference orderRef = await _firestore.collection('orders').add({
-          'userId': user.uid,
+          'user_id': user.uid,
           'items': checkoutItems,
-          'totalPrice': totalPrice,
+          'total_price': totalPrice,
           'status': 'Chờ xác nhận',
-          'date': FieldValue.serverTimestamp(),
+          'created_at': DateTime.now().millisecondsSinceEpoch,
         });
 
-        // Xóa giỏ hàng
-        final cartItemsRef = _firestore.collection('carts').doc(user.uid).collection('items');
-        QuerySnapshot cartSnapshot = await cartItemsRef.get();
+        transaction.update(orderRef, {'order_id': orderRef.id});
+
+        QuerySnapshot cartSnapshot = await _firestore
+            .collection('carts')
+            .where('user_id', isEqualTo: user.uid)
+            .get();
         for (var doc in cartSnapshot.docs) {
           transaction.delete(doc.reference);
         }
-
-        return orderRef.id;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

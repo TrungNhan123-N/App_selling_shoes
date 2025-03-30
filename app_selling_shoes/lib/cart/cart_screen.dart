@@ -12,16 +12,24 @@ class _CartScreenState extends State<CartScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   double totalPrice = 0.0;
 
-  Future<void> _updateQuantity(String key, int quantity) async {
+  Future<void> _updateQuantity(String productId, int quantity) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final itemRef = _firestore.collection('carts').doc(user.uid).collection('items').doc(key);
+    final cartQuery = await _firestore.collection('carts')
+        .where('user_id', isEqualTo: user.uid)
+        .where('product_id', isEqualTo: productId)
+        .get();
 
-    if (quantity <= 0) {
-      await itemRef.delete();
-    } else {
-      await itemRef.update({'quantity': quantity});
+    if (cartQuery.docs.isNotEmpty) {
+      final docId = cartQuery.docs.first.id;
+      final docRef = _firestore.collection('carts').doc(docId);
+
+      if (quantity <= 0) {
+        await docRef.delete();
+      } else {
+        await docRef.update({'quantity': quantity});
+      }
     }
   }
 
@@ -30,7 +38,9 @@ class _CartScreenState extends State<CartScreen> {
     return Scaffold(
       appBar: AppBar(title: Text('Giỏ hàng')),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('carts').doc(_auth.currentUser!.uid).collection('items').snapshots(),
+        stream: _firestore.collection('carts')
+            .where('user_id', isEqualTo: _auth.currentUser!.uid)
+            .snapshots(),
         builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
@@ -40,14 +50,22 @@ class _CartScreenState extends State<CartScreen> {
           }
 
           List<Map<String, dynamic>> cartList = snapshot.data!.docs.map((doc) {
+            var data = doc.data() as Map<String, dynamic>;
             return {
-              'key': doc.id,
-              ...doc.data() as Map<String, dynamic>,
+              'user_id': data['user_id'],
+              'product_id': data['product_id'],
+              'name': data['name'],
+              'price': data['price'],
+              'image_url': data['image_url'],
+              'quantity': data['quantity'],
+              'created_at': data['created_at'],
             };
           }).toList();
 
           totalPrice = cartList.fold(0.0, (sum, item) {
-            return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];
+            double price = double.tryParse(item['price'].toString()) ?? 0.0;
+            int quantity = int.tryParse(item['quantity'].toString()) ?? 1;
+            return sum + price * quantity;
           });
 
           return Column(
@@ -74,12 +92,12 @@ class _CartScreenState extends State<CartScreen> {
                           children: [
                             IconButton(
                               icon: Icon(Icons.remove),
-                              onPressed: () => _updateQuantity(item['key'], item['quantity'] - 1),
+                              onPressed: () => _updateQuantity(item['product_id'], item['quantity'] - 1),
                             ),
                             Text("${item['quantity']}"),
                             IconButton(
                               icon: Icon(Icons.add),
-                              onPressed: () => _updateQuantity(item['key'], item['quantity'] + 1),
+                              onPressed: () => _updateQuantity(item['product_id'], item['quantity'] + 1),
                             ),
                           ],
                         ),

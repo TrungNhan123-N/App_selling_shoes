@@ -5,13 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c8412321-1790-44bd-84c5-8806eff4d868" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/admin_screen/admin_dash_board_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/admin_screen/admin_dash_board_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/admin_screen/user_list_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/admin_screen/user_list_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/authentications/register_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/authentications/register_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/cart_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/cart_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/checkout_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/checkout_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/product_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/product_detail_screen.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,7 +46,7 @@
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Ex2&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Ex3&quot;,
     &quot;io.flutter.reload.alreadyRun&quot;: &quot;true&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;D:/NAMBA/HK2/KTPM/app_selling_shoes&quot;,
