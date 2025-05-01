@@ -8,10 +8,7 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/cart_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/cart_screen.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/checkout_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/checkout_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/payment_screen.dart" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/cart/product_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/cart/product_detail_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/lib/home.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/lib/home.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_selling_shoes/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/app_selling_shoes/pubspec.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,7 +46,7 @@
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Ex3&quot;,
     &quot;io.flutter.reload.alreadyRun&quot;: &quot;true&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;D:/NAMBA/HK2/KTPM/app_selling_shoes&quot;,
@@ -82,5 +79,16 @@
       <updated>1740733782926</updated>
     </task>
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>

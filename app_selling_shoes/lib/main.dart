@@ -1,6 +1,5 @@
 import 'package:app_selling_shoes/authentications/login_screen.dart';
 import 'package:app_selling_shoes/firebase_options.dart';
-import 'package:app_selling_shoes/tracking/tracking_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'authentications/forgot_password_screen.dart';
@@ -24,8 +23,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Shoe Store App',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home:LoginScreen(),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.white, // Đặt màu nền thành trắng
+      ),
+      home: LoginScreen(),
       routes: {
         '/login': (context) => LoginScreen(),
         '/register': (context) => RegisterScreen(),
@@ -35,9 +37,7 @@ class MyApp extends StatelessWidget {
         '/orders': (context) => OrderListScreen(),
         '/cart': (context) => CartScreen(),
         '/checkout': (context) => CheckoutScreen(),
-        // Sử dụng builder để xử lý arguments cho ProductDetailScreen
         '/product_detail': (context) => _buildProductDetailScreen(context),
-        '/tracking': (context) => TrackingScreen(orderId: ''),
       },
     );
   }

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'authentications/login_screen.dart';
 import 'category.dart';
-import 'main_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -11,6 +13,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
 
   String _searchQuery = '';
@@ -23,28 +26,43 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Kiểm tra trạng thái đăng nhập
+    User? user = _auth.currentUser;
+
+    if (user == null) {
+      // Nếu chưa đăng nhập, chuyển hướng đến màn hình đăng nhập
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => LoginScreen()),
+        );
+      });
+      return Scaffold(
+        body: Center(child: Text("Đang chuyển hướng đến đăng nhập...")),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Shoe Store'),
+        backgroundColor: Colors.blueGrey,
+        title: Text('Shoe Store', semanticsLabel: 'home_screen'),
         actions: [
           IconButton(
             icon: Icon(Icons.shopping_cart),
             onPressed: () {
-              final mainScreenState = MainScreen.globalKey.currentState;
-              // mainScreenState?._onItemTapped(1); // Chuyển sang tab Cart
+              Navigator.pushNamed(context, '/cart');
             },
           ),
         ],
       ),
       body: Column(
         children: [
-          // Thanh tìm kiếm
           Padding(
             padding: EdgeInsets.all(10),
             child: TextField(
               onChanged: (value) {
                 setState(() {
-                  _searchQuery = value.toLowerCase(); // Cập nhật từ khóa tìm kiếm
+                  _searchQuery = value.toLowerCase();
                 });
               },
               decoration: InputDecoration(
@@ -54,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Danh mục sản phẩm
           SizedBox(
             height: 100,
             child: ListView.builder(
@@ -79,14 +96,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Banner khuyến mãi tự động chuyển đổi
           Padding(
             padding: EdgeInsets.symmetric(vertical: 10),
             child: CarouselSlider(
               options: CarouselOptions(
                 height: 150,
-                autoPlay: true, // Tự động chạy
-                autoPlayInterval: Duration(seconds: 3), // Chuyển ảnh sau mỗi 3 giây
+                autoPlay: true,
+                autoPlayInterval: Duration(seconds: 3),
                 enlargeCenterPage: true,
                 viewportFraction: 0.9,
               ),
@@ -98,42 +114,95 @@ class _HomeScreenState extends State<HomeScreen> {
               }).toList(),
             ),
           ),
-          // Danh sách sản phẩm từ Firestore (có tìm kiếm)
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('products').snapshots(),
+              stream: _firestore.collection('products').orderBy('created_at', descending: true).snapshots(),
               builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  // Xử lý lỗi permission-denied
+                  if (snapshot.error.toString().contains('permission-denied')) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text("Bạn không có quyền truy cập dữ liệu này."),
+                          SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => LoginScreen()),
+                              );
+                            },
+                            child: Text("Đăng nhập lại"),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return Center(child: Text("Đã xảy ra lỗi: ${snapshot.error}"));
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(child: Text("Không có sản phẩm"));
                 }
 
-                // Lọc sản phẩm theo từ khóa tìm kiếm
-                final products = snapshot.data!.docs
-                    .map((doc) => doc.data() as Map<String, dynamic>)
-                    .where((product) =>
-                        product['name'].toString().toLowerCase().contains(_searchQuery))
+                List<Map<String, dynamic>> productList = [];
+                try {
+                  productList = snapshot.data!.docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return {
+                      'key': doc.id,
+                      'name': data['name'] != null ? data['name'].toString() : 'Không có tên',
+                      'price': data['price']?.toDouble() ?? 0.0,
+                      'image_url': data['image_url'] != null ? data['image_url'].toString() : null,
+                      'description': data['description'] != null ? data['description'].toString() : null,
+                      'category_id': data['category_id'] != null ? data['category_id'].toString() : null,
+                      'created_at': data['created_at'],
+                      'stock': data['stock'] as int?,
+                    };
+                  }).toList();
+                } catch (e) {
+                  return Center(child: Text("Lỗi xử lý dữ liệu: $e"));
+                }
+
+                final filteredProducts = productList
+                    .where((product) => product['name'].toString().toLowerCase().contains(_searchQuery))
                     .toList();
 
-                return products.isEmpty
+                return filteredProducts.isEmpty
                     ? Center(child: Text("Không tìm thấy sản phẩm"))
                     : ListView.builder(
-                        itemCount: products.length,
+                        itemCount: filteredProducts.length,
                         itemBuilder: (context, index) {
-                          final product = products[index];
+                          final product = filteredProducts[index];
                           return ListTile(
-                            leading: product['image_url'] != null
-                                ? Image.network(
-                                    product['image_url'],
+                            leading: product['image_url'] != null &&
+                                    product['image_url'].toString().startsWith('data:image/')
+                                ? Image.memory(
+                                    base64Decode(product['image_url'].toString().split(',').last),
                                     width: 50,
                                     height: 50,
                                     fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(Icons.image_not_supported);
+                                    },
                                   )
-                                : Icon(Icons.shopping_bag),
-                            title: Text(product['name'] ?? 'Không có tên'),
-                            subtitle: Text('\$${product['price']?.toStringAsFixed(2) ?? '0.00'}'),
+                                : product['image_url'] != null
+                                    ? Image.network(
+                                        product['image_url'] as String,
+                                        width: 50,
+                                        height: 50,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Icon(Icons.image_not_supported);
+                                        },
+                                      )
+                                    : Icon(Icons.shopping_bag),
+                            title: Text(product['name'] as String),
+                            subtitle: Text('\$${product['price'].toStringAsFixed(2)}'),
                             onTap: () {
                               Navigator.pushNamed(context, '/product_detail', arguments: product);
                             },

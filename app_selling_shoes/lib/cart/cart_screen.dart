@@ -1,6 +1,6 @@
-// cart_screen.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class CartScreen extends StatefulWidget {
@@ -11,23 +11,27 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   double totalPrice = 0.0;
 
-  Future<void> _updateQuantity(String docId, int quantity) async {
+  Future<void> _updateQuantity(String productId, int quantity) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final itemRef = _firestore
+    final cartQuery = await _firestore
         .collection('carts')
-        .doc(user.uid)
-        .collection('items')
-        .doc(docId);
+        .where('user_id', isEqualTo: user.uid)
+        .where('product_id', isEqualTo: productId)
+        .get();
 
-    if (quantity <= 0) {
-      await itemRef.delete();
-    } else {
-      await itemRef.update({'quantity': quantity});
+    if (cartQuery.docs.isNotEmpty) {
+      final docId = cartQuery.docs.first.id;
+      final docRef = _firestore.collection('carts').doc(docId);
+
+      if (quantity <= 0) {
+        await docRef.delete();
+      } else {
+        await docRef.update({'quantity': quantity});
+      }
     }
   }
 
@@ -35,11 +39,10 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Giỏ hàng')),
-      body: StreamBuilder(
+      body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('carts')
-            .doc(_auth.currentUser!.uid)
-            .collection('items')
+            .where('user_id', isEqualTo: _auth.currentUser!.uid)
             .snapshots(),
         builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -49,45 +52,68 @@ class _CartScreenState extends State<CartScreen> {
             return Center(child: Text('Giỏ hàng trống.'));
           }
 
-          final cartItems = snapshot.data!.docs;
+          List<Map<String, dynamic>> cartList = snapshot.data!.docs.map((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            return {
+              'user_id': data['user_id'],
+              'product_id': data['product_id'],
+              'name': data['name'],
+              'price': data['price'],
+              'image_url': data['image_url'],
+              'quantity': data['quantity'],
+              'created_at': data['created_at'],
+            };
+          }).toList();
 
-          totalPrice = cartItems.fold(0.0, (sum, item) {
-            var data = item.data() as Map<String, dynamic>;
-            return sum + (double.tryParse(data['price'].toString()) ?? 0.0) * data['quantity'];
+          totalPrice = cartList.fold(0.0, (sum, item) {
+            double price = double.tryParse(item['price'].toString()) ?? 0.0;
+            int quantity = int.tryParse(item['quantity'].toString()) ?? 1;
+            return sum + price * quantity;
           });
 
           return Column(
             children: [
               Expanded(
                 child: ListView.builder(
-                  itemCount: cartItems.length,
+                  itemCount: cartList.length,
                   itemBuilder: (context, index) {
-                    var item = cartItems[index];
-                    var data = item.data() as Map<String, dynamic>;
-
+                    var item = cartList[index];
                     return Card(
                       margin: EdgeInsets.all(10),
                       child: ListTile(
-                        leading: Image.network(
-                          data['image_url'],
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50),
-                        ),
-                        title: Text(data['name']),
-                        subtitle: Text("Giá: \$${data['price']}"),
+                        leading: item['image_url'] != null &&
+                                item['image_url'].toString().startsWith('data:image/')
+                            ? Image.memory(
+                                base64Decode(item['image_url'].toString().split(',').last),
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Icon(Icons.image_not_supported, size: 50),
+                              )
+                            : item['image_url'] != null
+                                ? Image.network(
+                                    item['image_url'],
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        Icon(Icons.image_not_supported, size: 50),
+                                  )
+                                : Icon(Icons.image_not_supported, size: 50),
+                        title: Text(item['name']),
+                        subtitle: Text("Giá: \$${item['price']}"),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: Icon(Icons.remove),
-                              onPressed: () => _updateQuantity(item.id, data['quantity'] - 1),
+                              onPressed: () => _updateQuantity(item['product_id'], item['quantity'] - 1),
                             ),
-                            Text("${data['quantity']}"),
+                            Text("${item['quantity']}"),
                             IconButton(
                               icon: Icon(Icons.add),
-                              onPressed: () => _updateQuantity(item.id, data['quantity'] + 1),
+                              onPressed: () => _updateQuantity(item['product_id'], item['quantity'] + 1),
                             ),
                           ],
                         ),
@@ -108,7 +134,8 @@ class _CartScreenState extends State<CartScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Tổng tiền:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text("\$${totalPrice.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
+                        Text("\$${totalPrice.toStringAsFixed(2)}",
+                            style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     SizedBox(height: 10),

@@ -1,0 +1,2 @@
+D:/year3/ktpm/demo3/app_selling_shoes/android/app/.cxx/Debug/b3d1y3w3/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/year3/ktpm/demo3/app_selling_shoes/android/app/.cxx/Debug/b3d1y3w3/armeabi-v7a/CMakeFiles/rebuild_cache.dir

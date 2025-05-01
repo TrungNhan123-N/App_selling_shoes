@@ -1,8 +1,10 @@
-import 'package:app_selling_shoes/authentications/register_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../main_screen.dart';
+import '../admin_screen/admin_dash_board_screen.dart';
 import 'forgot_password_screen.dart';
+import '../transfer_screen.dart';
+import 'package:app_selling_shoes/authentications/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -13,19 +15,157 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isLoading = false;
+  bool _obscureText = true;
 
-  void login() async {
+  Future<bool> _checkLoginAttempts(String email) async {
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => MainScreen()));
+      DocumentSnapshot doc = await _firestore.collection('login_attempts').doc(email).get();
+      if (doc.exists) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        int attempts = data['attempts'] ?? 0;
+        int timestamp = data['timestamp'] ?? 0;
+        int currentTime = DateTime.now().millisecondsSinceEpoch;
+
+        if (currentTime - timestamp > 15 * 60 * 1000) {
+          await _firestore.collection('login_attempts').doc(email).set({
+            'attempts': 0,
+            'timestamp': currentTime,
+          });
+          return true;
+        }
+
+        if (attempts >= 5) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Tài khoản bị khóa tạm thời. Vui lòng thử lại sau 15 phút")),
+          );
+          return false;
+        }
+      }
+      return true;
     } catch (e) {
+      print("Lỗi khi kiểm tra số lần đăng nhập: $e");
+      return true; // Cho phép đăng nhập nếu kiểm tra thất bại
+    }
+  }
+
+  Future<void> _incrementLoginAttempts(String email) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('login_attempts').doc(email).get();
+      if (doc.exists) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        int attempts = data['attempts'] ?? 0;
+        await _firestore.collection('login_attempts').doc(email).update({
+          'attempts': attempts + 1,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+      } else {
+        await _firestore.collection('login_attempts').doc(email).set({
+          'attempts': 1,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+    } catch (e) {
+      print("Lỗi khi tăng số lần thử đăng nhập: $e");
+    }
+  }
+
+  Future<void> _resetLoginAttempts(String email) async {
+    try {
+      await _firestore.collection('login_attempts').doc(email).delete();
+    } catch (e) {
+      print("Lỗi khi reset số lần thử đăng nhập: $e");
+    }
+  }
+
+  Future<void> _login() async {
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Lỗi đăng nhập: ${e.toString()}")),
+        SnackBar(content: Text("Vui lòng nhập email và mật khẩu")),
       );
+      return;
+    }
+
+    bool canLogin = await _checkLoginAttempts(email);
+    if (!canLogin) {
+      print("Không thể đăng nhập do vượt quá số lần thử");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    print("Bắt đầu quá trình đăng nhập...");
+
+    try {
+      // Đăng nhập với Firebase Authentication
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      print("Đăng nhập thành công với UID: ${userCredential.user!.uid}");
+
+      String? token = await userCredential.user!.getIdToken();
+      print("Token: $token");
+
+      await _resetLoginAttempts(email);
+      print("Đã reset số lần thử đăng nhập");
+
+      // Truy vấn Firestore
+      DocumentSnapshot userSnapshot = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+      print("Kiểm tra dữ liệu người dùng trong Firestore...");
+
+      String role;
+      if (userSnapshot.exists) {
+        Map<String, dynamic> userData = userSnapshot.data() as Map<String, dynamic>;
+        role = userData['role'] ?? 'user';
+        print("Vai trò từ Firestore: $role");
+      } else {
+        print("Người dùng không tồn tại trong Firestore, tạo mới với vai trò user...");
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'email': email,
+          'role': 'user',
+          'created_at': FieldValue.serverTimestamp(),
+        });
+        role = 'user';
+      }
+
+      // Điều hướng dựa trên vai trò
+      if (role == 'admin') {
+        AuthStatus.isAdmin = true;
+        print("Điều hướng đến AdminDashboardScreen...");
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => AdminDashboardScreen()),
+          );
+        }
+      } else {
+        AuthStatus.isAdmin = false;
+        print("Điều hướng đến TransferScreen...");
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const TransferScreen()),
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      // Bắt tất cả ngoại lệ
+      print("Lỗi trong quá trình đăng nhập: $e");
+      print("Stack trace: $stackTrace");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đã xảy ra lỗi: $e")),
+      );
+      await _incrementLoginAttempts(email);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      print("Kết thúc quá trình đăng nhập");
     }
   }
 
@@ -33,73 +173,182 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(20),
+          padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Image.asset(
-                "assets/images/1.png",
-                height: 120,
+              Center(
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.blue[50],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  padding: EdgeInsets.all(20.0),
+                  child: ClipOval(
+                    child: Image.asset(
+                      "assets/images/1.png",
+                      height: 160,
+                      width: 160,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 30),
               Text(
-                "Chào mừng đến với ShoeStore",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+                "Đăng Nhập",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 10),
+              Text(
+                "Chào mừng bạn đến với ShoeStore",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.blue[700],
+                ),
+              ),
+              SizedBox(height: 40),
               TextField(
                 controller: emailController,
                 decoration: InputDecoration(
                   labelText: "Email",
-                  prefixIcon: Icon(Icons.email, color: Colors.black),
+                  labelStyle: TextStyle(color: Colors.blue),
+                  prefixIcon: Icon(Icons.email, color: Colors.blue),
+                  filled: true,
+                  fillColor: Colors.blue[50],
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.blue, width: 2),
                   ),
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
-              SizedBox(height: 15),
+              SizedBox(height: 20),
               TextField(
                 controller: passwordController,
                 decoration: InputDecoration(
                   labelText: "Mật khẩu",
-                  prefixIcon: Icon(Icons.lock, color: Colors.black),
+                  labelStyle: TextStyle(color: Colors.blue),
+                  prefixIcon: Icon(Icons.lock, color: Colors.blue),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () {
+                      setState(() {
+                        _obscureText = !_obscureText;
+                      });
+                    },
+                  ),
+                  filled: true,
+                  fillColor: Colors.blue[50],
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.blue, width: 2),
                   ),
                 ),
-                obscureText: true,
+                obscureText: _obscureText,
+              ),
+              SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 5,
+                ),
+                child: _isLoading
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                  "Đăng nhập",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
               SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  padding: EdgeInsets.symmetric(vertical: 15, horizontal: 40),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ForgotPasswordScreen()),
                 ),
                 child: Text(
-                  "Đăng nhập",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
+                  "Quên mật khẩu?",
+                  style: TextStyle(color: Colors.blue, fontSize: 16),
                 ),
               ),
               SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ForgotPasswordScreen())),
-                child: Text("Quên mật khẩu?", style: TextStyle(color: Colors.black)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Chưa có tài khoản? ",
+                    style: TextStyle(color: Colors.blue[700]),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => RegisterScreen(isAdmin: false)),
+                    ),
+                    child: Text(
+                      "Đăng ký ngay",
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => RegisterScreen())),
-                child: Text("Chưa có tài khoản?  Đăng ký", style: TextStyle(color: Colors.black)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Bạn là quản trị viên? ",
+                    style: TextStyle(color: Colors.blue[700]),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => RegisterScreen(isAdmin: true)),
+                    ),
+                    child: Text(
+                      "Đăng ký Admin",
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -107,4 +356,8 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class AuthStatus {
+  static bool isAdmin = false;
 }
