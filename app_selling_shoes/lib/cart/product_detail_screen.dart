@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -70,15 +71,24 @@ class ProductDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: product['image_url'] != null
-                  ? Image.network(
-                product['image_url'],
-                height: 200,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.image_not_supported, size: 200),
-              )
-                  : Icon(Icons.image_not_supported, size: 200),
+              child: product['image_url'] != null &&
+                      product['image_url'].toString().startsWith('data:image/')
+                  ? Image.memory(
+                      base64Decode(product['image_url'].toString().split(',').last),
+                      height: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Icon(Icons.image_not_supported, size: 200),
+                    )
+                  : product['image_url'] != null
+                      ? Image.network(
+                          product['image_url'],
+                          height: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Icon(Icons.image_not_supported, size: 200),
+                        )
+                      : Icon(Icons.image_not_supported, size: 200),
             ),
             SizedBox(height: 20),
             Text(

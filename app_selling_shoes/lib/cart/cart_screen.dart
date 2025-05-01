@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,8 @@ class _CartScreenState extends State<CartScreen> {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final cartQuery = await _firestore.collection('carts')
+    final cartQuery = await _firestore
+        .collection('carts')
         .where('user_id', isEqualTo: user.uid)
         .where('product_id', isEqualTo: productId)
         .get();
@@ -38,7 +40,8 @@ class _CartScreenState extends State<CartScreen> {
     return Scaffold(
       appBar: AppBar(title: Text('Giỏ hàng')),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('carts')
+        stream: _firestore
+            .collection('carts')
             .where('user_id', isEqualTo: _auth.currentUser!.uid)
             .snapshots(),
         builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
@@ -78,13 +81,26 @@ class _CartScreenState extends State<CartScreen> {
                     return Card(
                       margin: EdgeInsets.all(10),
                       child: ListTile(
-                        leading: Image.network(
-                          item['image_url'],
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50),
-                        ),
+                        leading: item['image_url'] != null &&
+                                item['image_url'].toString().startsWith('data:image/')
+                            ? Image.memory(
+                                base64Decode(item['image_url'].toString().split(',').last),
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Icon(Icons.image_not_supported, size: 50),
+                              )
+                            : item['image_url'] != null
+                                ? Image.network(
+                                    item['image_url'],
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        Icon(Icons.image_not_supported, size: 50),
+                                  )
+                                : Icon(Icons.image_not_supported, size: 50),
                         title: Text(item['name']),
                         subtitle: Text("Giá: \$${item['price']}"),
                         trailing: Row(
@@ -118,7 +134,8 @@ class _CartScreenState extends State<CartScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Tổng tiền:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text("\$${totalPrice.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
+                        Text("\$${totalPrice.toStringAsFixed(2)}",
+                            style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     SizedBox(height: 10),
