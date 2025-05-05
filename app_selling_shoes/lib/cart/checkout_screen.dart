@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../orders/order_list_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   @override
@@ -29,83 +28,61 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         .where('user_id', isEqualTo: user.uid)
         .get();
 
-    if (cartSnapshot.docs.isNotEmpty) {
-      List<Map<String, dynamic>> cartList = cartSnapshot.docs.map((doc) {
-        return {'cart_id': doc.id, ...doc.data() as Map<String, dynamic>};
-      }).toList();
+    List<Map<String, dynamic>> cartList = cartSnapshot.docs.map((doc) {
+      return {'cart_id': doc.id, ...doc.data() as Map<String, dynamic>};
+    }).toList();
 
-      setState(() {
-        checkoutItems = cartList;
-        totalPrice = cartList.fold(0.0, (sum, item) {
-          return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];
-        });
+    setState(() {
+      checkoutItems = cartList;
+      totalPrice = cartList.fold(0.0, (sum, item) {
+        return sum + (double.tryParse(item['price'].toString()) ?? 0.0) * item['quantity'];
       });
-    }
+    });
   }
 
   Future<void> _placeOrder() async {
     final user = _auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Vui lòng đăng nhập để thanh toán")),
-      );
+      _showSnackBar("Vui lòng đăng nhập để thanh toán");
       return;
     }
 
     if (checkoutItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Giỏ hàng trống, không thể đặt hàng")),
-      );
+      _showSnackBar("Giỏ hàng trống, không thể đặt hàng");
       return;
     }
 
     try {
-      await _firestore.runTransaction((transaction) async {
-        for (var item in checkoutItems) {
-          DocumentReference productRef = _firestore.collection('products').doc(item['product_id']);
-          DocumentSnapshot productDoc = await transaction.get(productRef);
-          if (!productDoc.exists) {
-            throw Exception("${item['name']} không tồn tại");
-          }
-          int currentStock = (productDoc.data() as Map<String, dynamic>)['stock'] ?? 0;
-          if (currentStock < item['quantity']) {
-            throw Exception("${item['name']} không đủ hàng trong kho");
-          }
-          transaction.update(productRef, {'stock': currentStock - item['quantity']});
-        }
+      // Xóa tất cả sản phẩm trong giỏ hàng
+      QuerySnapshot cartSnapshot = await _firestore
+          .collection('carts')
+          .where('user_id', isEqualTo: user.uid)
+          .get();
+      for (var doc in cartSnapshot.docs) {
+        await doc.reference.delete();
+      }
 
-        DocumentReference orderRef = await _firestore.collection('orders').add({
-          'user_id': user.uid,
-          'items': checkoutItems,
-          'total_price': totalPrice,
-          'status': 'Chờ xác nhận',
-          'created_at': DateTime.now().millisecondsSinceEpoch,
-        });
-
-        transaction.update(orderRef, {'order_id': orderRef.id});
-
-        QuerySnapshot cartSnapshot = await _firestore
-            .collection('carts')
-            .where('user_id', isEqualTo: user.uid)
-            .get();
-        for (var doc in cartSnapshot.docs) {
-          transaction.delete(doc.reference);
-        }
+      // Cập nhật giao diện
+      setState(() {
+        checkoutItems = [];
+        totalPrice = 0.0;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đặt hàng thành công!")),
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => OrderListScreen()),
-      );
+      // Hiển thị thông báo thành công
+      _showSnackBar("Thanh toán thành công!", isSuccess: true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Lỗi khi đặt hàng: $e")),
-      );
+      _showSnackBar("Lỗi khi thanh toán: $e");
     }
+  }
+
+  void _showSnackBar(String message, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -147,8 +124,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Tổng tiền:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text("\$${totalPrice.toStringAsFixed(2)}",
-                        style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold)),
+                    Text(
+                      "\$${totalPrice.toStringAsFixed(2)}",
+                      style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
                 SizedBox(height: 10),

@@ -17,24 +17,41 @@ class ProductDetailScreen extends StatelessWidget {
     }
 
     final cartRef = FirebaseFirestore.instance.collection('carts');
+    final productId = product['id'].toString();
+
+    // In productId để kiểm tra
+    print("Product ID being added: $productId");
+
+    // Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa
     final cartQuery = await cartRef
         .where('user_id', isEqualTo: user.uid)
-        .where('product_id', isEqualTo: product['id'])
+        .where('product_id', isEqualTo: productId)
         .get();
+
+    // In kết quả truy vấn để kiểm tra
+    print("Cart query result: ${cartQuery.docs.length} items found");
+    if (cartQuery.docs.isNotEmpty) {
+      print("Existing cart item: ${cartQuery.docs.first.data()}");
+    }
 
     try {
       if (cartQuery.docs.isNotEmpty) {
+        // Sản phẩm đã có trong giỏ hàng, tăng số lượng
         final cartItem = cartQuery.docs.first;
-        int currentQuantity = cartItem['quantity'];
-        if (currentQuantity + 1 > product['stock']) {
+        int currentQuantity = int.tryParse(cartItem['quantity'].toString()) ?? 1;
+        int stock = int.tryParse(product['stock'].toString()) ?? 0;
+        if (currentQuantity + 1 > stock) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Số lượng vượt quá tồn kho")),
           );
           return;
         }
-        await cartItem.reference.update({'quantity': FieldValue.increment(1)});
+        await cartItem.reference.update({'quantity': currentQuantity + 1});
+        print("Updated quantity for product $productId to ${currentQuantity + 1}");
       } else {
-        if (product['stock'] < 1) {
+        // Sản phẩm chưa có, thêm mới
+        int stock = int.tryParse(product['stock'].toString()) ?? 0;
+        if (stock < 1) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Sản phẩm đã hết hàng")),
           );
@@ -42,13 +59,14 @@ class ProductDetailScreen extends StatelessWidget {
         }
         await cartRef.add({
           'user_id': user.uid,
-          'product_id': product['id'],
+          'product_id': productId,
           'name': product['name'],
           'price': product['price'],
           'image_url': product['image_url'],
           'quantity': 1,
-          'created_at': DateTime.now().millisecondsSinceEpoch,
+          'created_at': DateTime.now().millisecondsSinceEpoch / 1000, // Định dạng giây, khớp với web
         });
+        print("Added new product $productId to cart");
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Đã thêm vào giỏ hàng")),
@@ -57,6 +75,7 @@ class ProductDetailScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Lỗi khi thêm vào giỏ hàng: $e")),
       );
+      print("Error adding to cart: $e");
     }
   }
 
