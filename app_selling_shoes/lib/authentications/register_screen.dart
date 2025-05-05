@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:bcrypt/bcrypt.dart'; // Thêm bcrypt
+import 'package:bcrypt/bcrypt.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -25,7 +25,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscureText = true;
 
-  // Hàm mã hóa mật khẩu bằng bcrypt
   String _hashPassword(String password) {
     return BCrypt.hashpw(password, BCrypt.gensalt());
   }
@@ -39,10 +38,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String gender = genderController.text.trim();
     String role = widget.isAdmin ? 'admin' : 'user';
 
-    if (email.isEmpty || password.isEmpty || name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Vui lòng nhập đầy đủ tên, email và mật khẩu")),
-      );
+    // Kiểm tra email không chứa khoảng trắng hoặc liên tiếp các dấu chấm trước @
+    if (email.contains(' ')) {
+      _showErrorDialog("Email không hợp lệ");
+      return;
+    }
+    if (RegExp(r'\.{2,}(?=@)').hasMatch(email)) {
+      _showErrorDialog("Dấu '.' đã hiển thị liên tiếp");
+      return;
+    }
+
+    // Kiểm tra tuổi hợp lệ
+    int? parsedAge = int.tryParse(age);
+    if (parsedAge == null || parsedAge <= 0 || parsedAge > 120) {
+      _showErrorDialog("Tuổi không hợp lệ");
       return;
     }
 
@@ -54,47 +63,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: password,
       );
 
-      // Mã hóa mật khẩu bằng bcrypt
       String hashedPassword = _hashPassword(password);
 
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
         'uid': userCredential.user!.uid,
         'name': name,
         'email': email,
-        'password': hashedPassword, // Lưu bcrypt hash
+        'password': hashedPassword,
         'address': address.isNotEmpty ? address : 'Chưa cập nhật',
-        'age': int.tryParse(age) ?? 0,
+        'age': parsedAge,
         'gender': gender.isNotEmpty ? gender : 'Chưa xác định',
         'role': role,
         'created_at': FieldValue.serverTimestamp(),
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đăng ký thành công với vai trò $role!")),
-      );
 
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
         case 'email-already-in-use':
-          errorMessage = "Email này đã được sử dụng.";
+          errorMessage = "Email đã tồn tại";
           break;
         case 'invalid-email':
-          errorMessage = "Email không hợp lệ.";
+          errorMessage = "Email không hợp lệ";
           break;
         case 'weak-password':
-          errorMessage = "Mật khẩu quá yếu. Vui lòng nhập ít nhất 6 ký tự.";
+          errorMessage = "Mật khẩu của bạn ngắn (tối thiểu 6 ký tự)";
           break;
         default:
-          errorMessage = "Đã xảy ra lỗi: ${e.message}";
+          errorMessage = "Tùy chọn không hợp lệ";
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      _showErrorDialog(errorMessage);
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Ngăn người dùng đóng bằng cách nhấn bên ngoài
+      builder: (context) => AlertDialog(
+        title: Text("Lỗi"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Đóng dialog khi nhấn nút "Đóng"
+            },
+            child: Text("Đóng"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -315,7 +336,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       "Đăng nhập ngay",
                       style: TextStyle(
                         color: Colors.blue,
-                        fontWeight: FontWeight.bold,s
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
