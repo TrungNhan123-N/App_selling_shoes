@@ -315,7 +315,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       "Đăng nhập ngay",
                       style: TextStyle(
                         color: Colors.blue,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.bold,s
                       ),
                     ),
                   ),

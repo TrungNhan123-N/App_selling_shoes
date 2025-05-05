@@ -359,5 +359,5 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class AuthStatus {
-  static bool isAdmin = false;
+  static bool isAdmin = false;s
 }
