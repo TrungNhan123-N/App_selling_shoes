@@ -22,14 +22,14 @@ class _LoginScreenState extends State<LoginScreen> {
     Future<void> _showErrorDialog(String message) async {
         await showDialog(
             context: context,
-            barrierDismissible: false, // Không cho phép đóng bằng cách nhấn ngoài dialog
+            barrierDismissible: false,
             builder: (context) => AlertDialog(
                 title: Text("Thông báo lỗi"),
                 content: Text(message),
                 actions: [
                     TextButton(
                         onPressed: () {
-                            Navigator.of(context).pop(); // Đóng dialog khi nhấn "Đóng"
+                            Navigator.of(context).pop();
                         },
                         child: Text("Đóng"),
                     ),
@@ -47,7 +47,9 @@ class _LoginScreenState extends State<LoginScreen> {
             return;
         }
 
-        setState(() => _isLoading = true);
+        if (mounted) {
+            setState(() => _isLoading = true);
+        }
         print("Bắt đầu quá trình đăng nhập...");
 
         try {
@@ -106,18 +108,31 @@ class _LoginScreenState extends State<LoginScreen> {
             String errorMessage;
             switch (e.code) {
                 case 'user-not-found':
-                    errorMessage = "User không tồn tại";
+                    errorMessage = "Tài khoản không tồn tại";
                     break;
                 case 'wrong-password':
-                    errorMessage = "Sai mật khẩu, vui lòng kiểm tra lại";
+                    errorMessage = "Mật khẩu không đúng, vui lòng kiểm tra lại";
+                    break;
+                case 'invalid-email':
+                    errorMessage = "Email không hợp lệ";
+                    break;
+                case 'user-disabled':
+                    errorMessage = "Tài khoản đã bị vô hiệu hóa";
+                    break;
+                case 'too-many-requests':
+                    errorMessage = "Quá nhiều yêu cầu, vui lòng thử lại sau";
                     break;
                 default:
-                    errorMessage = "User không tồn tại"; // Mặc định dùng thông báo chung
+                    errorMessage = "Đã xảy ra lỗi, vui lòng thử lại";
             }
             _showErrorDialog(errorMessage);
         } catch (e) {
             print("Lỗi không xác định: $e");
-            _showErrorDialog("Sai mật khẩu, vui lòng kiểm tra lại");
+            String errorMessage = "Đã xảy ra lỗi, vui lòng thử lại sau";
+            if (e is FirebaseException) {
+                errorMessage = e.message ?? errorMessage;
+            }
+            _showErrorDialog(errorMessage);
         } finally {
             if (mounted) {
                 setState(() => _isLoading = false);

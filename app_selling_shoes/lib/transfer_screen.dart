@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'cart/cart_screen.dart';
 import 'home.dart';
-import 'orders/order_list_screen.dart';
 
 class TransferScreen extends StatefulWidget {
   const TransferScreen({super.key});
@@ -19,7 +18,6 @@ class _TransferScreenState extends State<TransferScreen> {
   final List<Widget> _screens = [
     HomeScreen(),
     CartScreen(),
-    OrderListScreen(),
   ];
 
   @override
@@ -55,7 +53,6 @@ class _TransferScreenState extends State<TransferScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tôi'),
         ],
       ),
     );
