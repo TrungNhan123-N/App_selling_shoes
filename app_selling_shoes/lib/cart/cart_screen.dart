@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -12,35 +13,36 @@ class _CartScreenState extends State<CartScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   double totalPrice = 0.0;
 
-  Future<void> _updateQuantity(String cartId, int quantity) async {
+  Future<void> _updateQuantity(String productId, int quantity) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final cartDocRef = _firestore.collection('carts').doc(cartId);
+    final cartQuery = await _firestore
+        .collection('carts')
+        .where('user_id', isEqualTo: user.uid)
+        .where('product_id', isEqualTo: productId)
+        .get();
 
-    if (quantity <= 0) {
-      await cartDocRef.delete();
-    } else {
-      await cartDocRef.update({'quantity': quantity});
+    if (cartQuery.docs.isNotEmpty) {
+      final docId = cartQuery.docs.first.id;
+      final docRef = _firestore.collection('carts').doc(docId);
+
+      if (quantity <= 0) {
+        await docRef.delete();
+      } else {
+        await docRef.update({'quantity': quantity});
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = _auth.currentUser;
-    if (user == null) {
-      return Scaffold(
-        appBar: AppBar(title: Text('Giỏ hàng')),
-        body: Center(child: Text('Vui lòng đăng nhập để xem giỏ hàng.')),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(title: Text('Giỏ hàng')),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('carts')
-            .where('user_id', isEqualTo: user.uid)
+            .where('user_id', isEqualTo: _auth.currentUser!.uid)
             .snapshots(),
         builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -53,7 +55,6 @@ class _CartScreenState extends State<CartScreen> {
           List<Map<String, dynamic>> cartList = snapshot.data!.docs.map((doc) {
             var data = doc.data() as Map<String, dynamic>;
             return {
-              'id': doc.id,
               'user_id': data['user_id'],
               'product_id': data['product_id'],
               'name': data['name'],
@@ -80,14 +81,33 @@ class _CartScreenState extends State<CartScreen> {
                     return Card(
                       margin: EdgeInsets.all(10),
                       child: ListTile(
-                        leading: Image.network(
-                          item['image_url'],
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Icon(Icons.image_not_supported, size: 50),
-                        ),
+                        leading: item['image_url'] != null &&
+                                item['image_url']
+                                    .toString()
+                                    .startsWith('data:image/')
+                            ? Image.memory(
+                                base64Decode(item['image_url']
+                                    .toString()
+                                    .split(',')
+                                    .last),
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Icon(Icons.image_not_supported, size: 50),
+                              )
+                            : item['image_url'] != null
+                                ? Image.network(
+                                    item['image_url'],
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) => Icon(
+                                            Icons.image_not_supported,
+                                            size: 50),
+                                  )
+                                : Icon(Icons.image_not_supported, size: 50),
                         title: Text(item['name']),
                         subtitle: Text("Giá: \$${item['price']}"),
                         trailing: Row(
@@ -96,13 +116,13 @@ class _CartScreenState extends State<CartScreen> {
                             IconButton(
                               icon: Icon(Icons.remove),
                               onPressed: () => _updateQuantity(
-                                  item['id'], item['quantity'] - 1),
+                                  item['product_id'], item['quantity'] - 1),
                             ),
                             Text("${item['quantity']}"),
                             IconButton(
                               icon: Icon(Icons.add),
                               onPressed: () => _updateQuantity(
-                                  item['id'], item['quantity'] + 1),
+                                  item['product_id'], item['quantity'] + 1),
                             ),
                           ],
                         ),
@@ -137,7 +157,8 @@ class _CartScreenState extends State<CartScreen> {
                       onPressed: () {
                         Navigator.pushNamed(context, '/checkout');
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green),
                       child: Text("Thanh toán",
                           style: TextStyle(fontSize: 18, color: Colors.white)),
                     ),

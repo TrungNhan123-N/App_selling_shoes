@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance; // Thêm FirebaseAuth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final List<String> categories = ["Sneakers", "Formal", "Casual", "Boots", "Sandals"];
 
   String _searchQuery = '';
@@ -174,29 +175,40 @@ class _HomeScreenState extends State<HomeScreen> {
                 return filteredProducts.isEmpty
                     ? Center(child: Text("Không tìm thấy sản phẩm"))
                     : ListView.builder(
-                  itemCount: filteredProducts.length,
-                  itemBuilder: (context, index) {
-                    final product = filteredProducts[index];
-                    return ListTile(
-                      leading: product['image_url'] != null
-                          ? Image.network(
-                        product['image_url'] as String,
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.image_not_supported);
+                        itemCount: filteredProducts.length,
+                        itemBuilder: (context, index) {
+                          final product = filteredProducts[index];
+                          return ListTile(
+                            leading: product['image_url'] != null &&
+                                    product['image_url'].toString().startsWith('data:image/')
+                                ? Image.memory(
+                                    base64Decode(product['image_url'].toString().split(',').last),
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(Icons.image_not_supported);
+                                    },
+                                  )
+                                : product['image_url'] != null
+                                    ? Image.network(
+                                        product['image_url'] as String,
+                                        width: 50,
+                                        height: 50,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Icon(Icons.image_not_supported);
+                                        },
+                                      )
+                                    : Icon(Icons.shopping_bag),
+                            title: Text(product['name'] as String),
+                            subtitle: Text('\$${product['price'].toStringAsFixed(2)}'),
+                            onTap: () {
+                              Navigator.pushNamed(context, '/product_detail', arguments: product);
+                            },
+                          );
                         },
-                      )
-                          : Icon(Icons.shopping_bag),
-                      title: Text(product['name'] as String),
-                      subtitle: Text('\$${product['price'].toStringAsFixed(2)}'),
-                      onTap: () {
-                        Navigator.pushNamed(context, '/product_detail', arguments: product);
-                      },
-                    );
-                  },
-                );
+                      );
               },
             ),
           ),

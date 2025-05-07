@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     errorMessage = "Quá nhiều yêu cầu, vui lòng thử lại sau";
                     break;
                 default:
-                    errorMessage = "Đã xảy ra lỗi, vui lòng thử lại";
+                    errorMessage = "Tài khoản không tồn tại";
             }
             _showErrorDialog(errorMessage);
         } catch (e) {
